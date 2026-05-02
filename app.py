@@ -103,8 +103,8 @@ NEW_TAXONOMY = {
     # 3. 임상·실무약학 — 약물치료학은 별도 트리, 나머지는 단순
     "🏥 3. 임상·실무약학 (140)": [
         ("처방검토·조제 (약국실무)", [13]),
+        ("의약품제조관리학", [87]),
         ("사회약학", [14]),
-        # 의약품제조관리학(18)은 현재 chapter 미생성 — placeholder
     ],
     "📖 4. 보건의약관계법규 (20)": [
         ("약사법규", [15]),
@@ -172,9 +172,6 @@ def sidebar_filter():
                             if st.checkbox(f"      └ {leaf['name']} ({leaf['qcnt']})",
                                            key=f"yc_leaf_{leaf['id']}"):
                                 chap_ids.append(leaf['id'])
-
-    st.sidebar.divider()
-    st.sidebar.caption("ℹ️ 의약품제조관리학(18)은 chapter 미생성")
 
     st.sidebar.divider()
     include_hidden = st.sidebar.checkbox("비공개 자료 포함", value=True)
