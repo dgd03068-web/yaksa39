@@ -1,0 +1,359 @@
+/* =========================================================================
+   국시 학습지 — 모의고사·기출 문제집 풍 인쇄 스타일
+   2026-05-04 WeasyPrint 전환
+   ========================================================================= */
+
+/* -------- Pretendard 폰트 (5 weight) -------- */
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 400;
+  font-style: normal;
+  src: url('../../fonts/Pretendard-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 500;
+  font-style: normal;
+  src: url('../../fonts/Pretendard-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 600;
+  font-style: normal;
+  src: url('../../fonts/Pretendard-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 700;
+  font-style: normal;
+  src: url('../../fonts/Pretendard-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 900;
+  font-style: normal;
+  src: url('../../fonts/Pretendard-Black.woff2') format('woff2');
+}
+
+/* -------- 페이지 -------- */
+@page {
+  size: A4;
+  margin: 14mm 12mm 16mm 12mm;          /* 2단 컬럼 — 좌우 여백 최소화 */
+  font-family: 'Pretendard', sans-serif;
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-size: 9pt;
+    color: #999;
+    font-weight: 500;
+  }
+  @top-right {
+    content: string(page-title);
+    font-size: 8.5pt;
+    color: #888;
+    font-weight: 500;
+  }
+}
+
+@page :first {
+  @top-right { content: ""; }
+  @bottom-center { content: ""; }
+}
+
+/* -------- 기본 -------- */
+* { box-sizing: border-box; }
+
+html, body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 9.5pt;             /* 2단이라 살짝 축소 (단단보다 1pt↓) */
+  line-height: 1.6;
+  word-break: keep-all;
+  line-break: strict;
+  color: #1a1a1a;
+  font-feature-settings: "kern" 1, "liga" 1;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 0;
+}
+
+/* -------- 2단 컬럼 컨테이너 -------- */
+.columns {
+  column-count: 2;
+  column-gap: 6mm;
+  column-rule: 0.4pt solid #e8e8e8;
+  column-fill: balance;
+}
+/* 컬럼 안에서 끊기지 않게 */
+.columns > * {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+/* 헤더/표지는 양쪽 컬럼 모두 차지 */
+.subject-header,
+.chapter-header,
+.solutions-title,
+.cover {
+  column-span: all;
+  -webkit-column-span: all;
+}
+
+p { margin: 0; padding: 0; }
+
+/* -------- 표지 -------- */
+.cover {
+  page: cover;
+  text-align: center;
+  padding-top: 80mm;
+  page-break-after: always;
+}
+.cover .title {
+  font-size: 24pt;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-bottom: 8mm;
+  color: #1a1a1a;
+}
+.cover .subtitle {
+  font-size: 12pt;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 4mm;
+}
+.cover .meta {
+  font-size: 10pt;
+  color: #888;
+  font-weight: 400;
+  margin-top: 20mm;
+}
+@page cover {
+  @top-right { content: ""; }
+  @bottom-center { content: ""; }
+}
+
+/* -------- 과목 헤더 -------- */
+.subject-header {
+  font-size: 14pt;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: #1a1a1a;
+  border-bottom: 2pt solid #1a1a1a;
+  padding-bottom: 2mm;
+  margin: 0 0 5mm 0;
+  string-set: page-title content();
+  page-break-before: always;
+  page-break-after: avoid;
+}
+.subject-header::before {
+  content: "■  ";
+  color: #cc0000;
+  font-weight: 900;
+}
+
+/* 첫 과목 헤더는 페이지 분리 안 함 (표지 다음 자연스럽게) */
+.subject-header.first {
+  page-break-before: auto;
+}
+
+/* -------- 단원(chapter) 헤더 -------- */
+.chapter-header {
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #444;
+  letter-spacing: -0.01em;
+  margin: 5mm 0 2.5mm 0;
+  padding-left: 2.5mm;
+  border-left: 2.5pt solid #cc0000;
+  page-break-after: avoid;
+}
+
+/* -------- 문제 블록 -------- */
+.question {
+  margin: 0 0 5mm 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.qhead {
+  display: flex;
+  margin-bottom: 1.5mm;
+}
+.qnum {
+  font-weight: 700;
+  font-size: 10pt;
+  color: #1a1a1a;
+  margin-right: 2mm;
+  flex-shrink: 0;
+  min-width: 5mm;
+}
+.qbody {
+  flex: 1;
+  font-size: 9.5pt;
+  line-height: 1.6;
+  color: #1a1a1a;
+  white-space: pre-line;
+}
+
+/* 박스형 지문 ([사례], [복용약물], [임상검사] 등) */
+.case-box {
+  background: #f7f7f7;
+  border-left: 2.5pt solid #c0c0c0;
+  padding: 1.5mm 2.5mm;
+  margin: 1.5mm 0;
+  font-size: 9pt;
+  line-height: 1.55;
+  color: #2a2a2a;
+  white-space: pre-line;
+}
+
+/* 표 (본문 안의 [표] 영역) */
+.qbody table, .case-box table {
+  border-collapse: collapse;
+  margin: 1.5mm 0;
+  font-size: 8.5pt;
+  width: 100%;
+}
+.qbody table th, .case-box table th,
+.qbody table td, .case-box table td {
+  border: 0.5pt solid #555;
+  padding: 1mm 1.5mm;
+  text-align: left;
+  line-height: 1.4;
+}
+.qbody table th, .case-box table th {
+  font-weight: 700;
+  background: #efefef;
+  text-align: center;
+}
+
+/* -------- 보기 ①②③④⑤ -------- */
+.choices {
+  list-style: none;
+  padding: 0 0 0 6mm;
+  margin: 1mm 0 0 0;
+}
+.choices li {
+  margin: 0.5mm 0;
+  text-indent: -5mm;
+  padding-left: 5mm;
+  font-size: 9.5pt;
+  line-height: 1.55;
+  color: #1a1a1a;
+}
+.choices li .marker {
+  font-weight: 600;
+  margin-right: 1.5mm;
+  display: inline-block;
+  min-width: 4mm;
+}
+
+/* -------- 그림 비공개 표시 -------- */
+.img-placeholder {
+  display: inline-block;
+  font-size: 9.5pt;
+  color: #888;
+  background: #fafafa;
+  border: 0.5pt dashed #ccc;
+  padding: 0.5mm 2mm;
+  border-radius: 2pt;
+  margin: 0 1mm;
+}
+
+/* -------- 정답·해설 영역 -------- */
+.solutions-title {
+  font-size: 22pt;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-align: center;
+  margin: 30mm 0 10mm 0;
+  page-break-before: always;
+  string-set: page-title content();
+}
+.solutions-title::after {
+  content: "";
+  display: block;
+  width: 30mm;
+  height: 2.5pt;
+  background: #cc0000;
+  margin: 4mm auto 0;
+}
+
+.solution {
+  margin: 0 0 4mm 0;
+  padding: 0 0 3mm 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  border-bottom: 0.5pt dashed #ddd;
+}
+.solution:last-child {
+  border-bottom: none;
+}
+
+.solution-head {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 1mm;
+  flex-wrap: wrap;
+}
+.solution-num {
+  font-weight: 800;
+  font-size: 10pt;
+  color: #1a1a1a;
+  margin-right: 1.5mm;
+}
+.answer-mark {
+  color: #cc0000;
+  font-weight: 800;
+  font-size: 10.5pt;
+  margin-right: 2mm;
+}
+.qid-ref {
+  font-size: 7.5pt;
+  color: #bbb;
+  font-weight: 400;
+  margin-left: auto;
+}
+
+.concept-tag {
+  display: inline-block;
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: #cc0000;
+  background: #fff5f5;
+  border: 0.5pt solid #ffe0e0;
+  padding: 0.3mm 2mm;
+  border-radius: 2pt;
+  margin: 0 0 1.5mm 0;
+}
+
+.expl-body {
+  font-size: 9pt;
+  line-height: 1.6;
+  color: #1a1a1a;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+
+/* [핵심] 강조 박스 */
+.expl-body .core-tag {
+  display: inline-block;
+  background: #fff3cd;
+  color: #664d03;
+  font-weight: 700;
+  padding: 0.3mm 1.5mm;
+  border-radius: 2pt;
+  margin-right: 1mm;
+}
+
+/* ✅ 마커 (정답 보기) */
+.expl-body .answer-check {
+  color: #198754;
+  font-weight: 700;
+}
+
+.expl-missing {
+  color: #aaa;
+  font-style: italic;
+  font-size: 10pt;
+}
+
+/* -------- 헬퍼 -------- */
+.no-break { page-break-inside: avoid; }

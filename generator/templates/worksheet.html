@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<link rel="stylesheet" href="base.css">
+</head>
+<body>
+
+<!-- ==================== 표지 ==================== -->
+<div class="cover">
+  <div class="title">{{ title }}</div>
+  {% if subtitle %}<div class="subtitle">{{ subtitle }}</div>{% endif %}
+  <div class="meta">
+    {{ generated_at }} · 총 {{ total_questions }}문제<br>
+    {{ subject_summary }}
+  </div>
+</div>
+
+<!-- ==================== 문제 영역 (2단 컬럼) ==================== -->
+<div class="columns">
+{% for group in groups %}
+  <h2 class="subject-header{% if loop.first %} first{% endif %}">{{ group.subject_name }}</h2>
+
+  {% for chapter in group.chapters %}
+    {% if chapter.show_header %}
+      <h3 class="chapter-header">{{ chapter.label }}</h3>
+    {% endif %}
+
+    {% for q in chapter.questions %}
+      <article class="question">
+        <div class="qhead">
+          <span class="qnum">{{ q.local_no }}.</span>
+          <div class="qbody">{{ q.body_html | safe }}{% if q.has_image %}<span class="img-placeholder">[그림 비공개]</span>{% endif %}</div>
+        </div>
+        <ol class="choices">
+          {% for c in q.choices %}
+            <li><span class="marker">{{ c.marker }}</span>{{ c.text }}</li>
+          {% endfor %}
+        </ol>
+      </article>
+    {% endfor %}
+
+  {% endfor %}
+{% endfor %}
+</div>
+
+</body>
+</html>

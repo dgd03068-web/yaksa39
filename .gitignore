@@ -1,25 +1,38 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.egg-info/
 .venv/
+venv/
 .env
+
+# Streamlit (실제 비번은 Cloud Secrets에 등록)
+.streamlit/secrets.toml
+
+# 출력 PDF (재생성 가능)
+output/
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# 출력 PDF (재생성 가능)
-output/*.pdf
-output/sample_*
+# iCloud
+*.icloud
 
 # 임시 파일
 *.tmp
 *.swp
+*.bak
 *~
+.~lock.*
 
 # IDE
 .vscode/
 .idea/
+
+# Logs
+*.log
 
 # DB는 보호 (해설/audit 포함 — 백업 가치 있음)
 # data/questions.db는 commit

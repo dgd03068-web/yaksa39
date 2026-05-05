@@ -24,6 +24,35 @@ YEAR_OPTIONS = [2021, 2022, 2023, 2024, 2025]
 
 st.set_page_config(page_title="2026 약사국시 학습지", layout="wide", initial_sidebar_state="expanded")
 
+
+# ────────────────── 비밀번호 게이트 ──────────────────
+def _check_password() -> bool:
+    """Streamlit Secrets에 'app_password'가 있을 때만 비번 요구.
+    로컬에서 secrets 없으면 무시 (자유 사용).
+    """
+    try:
+        required = st.secrets.get("app_password", None)
+    except Exception:
+        required = None
+    if not required:
+        return True  # 비번 미설정 → 자유 접근
+
+    if st.session_state.get("auth_ok"):
+        return True
+
+    st.markdown("### 🔒 비밀번호")
+    pw = st.text_input("접속 비밀번호를 입력하세요", type="password", key="pw_input")
+    if pw:
+        if pw == required:
+            st.session_state["auth_ok"] = True
+            st.rerun()
+        else:
+            st.error("비밀번호가 틀렸습니다.")
+    st.stop()
+
+
+_check_password()
+
 # ────────────────── DB helpers ──────────────────
 @st.cache_data(ttl=60)
 def get_subjects():
@@ -71,6 +100,21 @@ def get_yc_tree():
 
 
 @st.cache_data(ttl=60)
+def get_yj_tree():
+    """약제학 sub-chapter 트리: [{id, name, qcnt}, ...] (chapter_no 순)"""
+    YJ_PARENT_ID = 6  # 약제학 parent
+    with get_conn() as conn:
+        rows = conn.execute("""
+          SELECT c.id, c.name, c.chapter_no,
+                 (SELECT COUNT(*) FROM questions WHERE chapter_id=c.id) AS qcnt
+          FROM chapters c
+          WHERE c.parent_id=?
+          ORDER BY c.chapter_no
+        """, (YJ_PARENT_ID,)).fetchall()
+    return [{'id': r['id'], 'name': r['name'], 'qcnt': r['qcnt']} for r in rows]
+
+
+@st.cache_data(ttl=60)
 def chapter_qcnt(chapter_ids):
     """주어진 chapter_id들의 문제 수 합."""
     if not chapter_ids:
@@ -97,7 +141,8 @@ NEW_TAXONOMY = {
         ("물리약학", [7]),
         ("의약품 합성학·의약화학", [9]),  # 약물합성학
         ("약품분석학", [8]),
-        ("약제학", [6]),
+        # 약제학은 별도 sub-tree expander로 처리 (1-7장 + PK 개별 선택). 산업약학 한 번에 = 약제학 전체 포함하기 위해 leaf 8개를 같이 묶어둠.
+        ("약제학", [88, 89, 90, 91, 92, 93, 94, 95]),
         ("생약학·한약제제학", [10, 11]),
     ],
     # 3. 임상·실무약학 — 약물치료학은 별도 트리, 나머지는 단순
@@ -147,6 +192,20 @@ def sidebar_filter():
                     qcnt = chapter_qcnt(cids)
                     if st.checkbox(f"{sub_label} ({qcnt})", key=f"sub_{big_label}_{sub_label}"):
                         chap_ids.extend(cids)
+
+    # ───── 🧪 약제학 sub-tree (1-7장 + 약동학 8단원 개별 선택) ─────
+    yj_tree = get_yj_tree()
+    if yj_tree:
+        yj_total = sum(s['qcnt'] for s in yj_tree)
+        with st.sidebar.expander(f"🧪 2-1. 약제학 ({yj_total}문제)", expanded=False):
+            all_yj_cids = [s['id'] for s in yj_tree]
+            if st.checkbox(f"📦 약제학 전체 ({yj_total})", key="yj_all_root"):
+                chap_ids.extend(all_yj_cids)
+            else:
+                for s in yj_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"yj_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
 
     # ───── 💊 약물치료학 (16 카테고리 트리, 임상·실무약학 안의 핵심) ─────
     yc_tree = get_yc_tree()

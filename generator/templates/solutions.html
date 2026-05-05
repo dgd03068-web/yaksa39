@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>정답·해설</title>
+<link rel="stylesheet" href="base.css">
+</head>
+<body>
+
+<h1 class="solutions-title">정답 · 해설</h1>
+
+<div class="columns">
+{% for group in groups %}
+  <h2 class="subject-header{% if loop.first %} first{% endif %}">{{ group.subject_name }}</h2>
+
+  {% for chapter in group.chapters %}
+    {% if chapter.show_header %}
+      <h3 class="chapter-header">{{ chapter.label }}</h3>
+    {% endif %}
+
+    {% for q in chapter.questions %}
+      <article class="solution">
+        <div class="solution-head">
+          <span class="solution-num">{{ q.local_no }})</span>
+          <span class="answer-mark">{{ q.answer_marker }}</span>
+          {% if q.concept_tag %}<span class="concept-tag">{{ q.concept_tag }}</span>{% endif %}
+          <span class="qid-ref">[qid={{ q.id }} · {{ q.year }}년 {{ q.session }}교시 {{ q.qnum }}번]</span>
+        </div>
+        {% if q.explanation_html %}
+          <div class="expl-body">{{ q.explanation_html | safe }}</div>
+        {% else %}
+          <div class="expl-missing">해설 미작성</div>
+        {% endif %}
+      </article>
+    {% endfor %}
+
+  {% endfor %}
+{% endfor %}
+</div>
+
+</body>
+</html>
