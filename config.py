@@ -22,8 +22,16 @@ LECTURE_ORGANIZED = ROOT / "강의파일"
 
 # 출력
 DB_PATH = APP_DIR / "data" / "questions.db"
-OUTPUT_DIR = APP_DIR / "output"
 TEMPLATE_DIR = APP_DIR / "generator" / "templates"
+
+# 클라우드(/mount/src/...)는 read-only → /tmp로. 로컬은 app/output/
+import os as _os
+import tempfile as _tempfile
+if str(APP_DIR).startswith("/mount/") or _os.environ.get("STREAMLIT_RUNTIME_ENV") == "cloud":
+    OUTPUT_DIR = Path(_tempfile.gettempdir()) / "yaksa39_output"
+else:
+    OUTPUT_DIR = APP_DIR / "output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # 회차 매핑 (연도 → 회차)
 ROUND_MAP = {2021: 72, 2022: 73, 2023: 74, 2024: 75, 2025: 76}
