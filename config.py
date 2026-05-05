@@ -1,9 +1,11 @@
 """Central paths for the app. Edit if folders move."""
 from pathlib import Path
 
-# 프로젝트 루트 = 이 파일의 부모의 부모 ("국시 학습 프로그램/")
-ROOT = Path(__file__).resolve().parent.parent
-APP_DIR = ROOT / "app"
+# config.py 자체가 app/ 안에 있음.
+# 로컬: app/ 의 부모 = "국시 학습 프로그램/"
+# 클라우드(repo 루트=app/): app/ 의 부모 = /mount/src/yaksa39 의 부모 (외부 자료 없음)
+APP_DIR = Path(__file__).resolve().parent
+ROOT = APP_DIR.parent
 
 # 입력 자료
 EXAM_FOLDERS = {
