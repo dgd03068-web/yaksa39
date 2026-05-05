@@ -75,25 +75,13 @@ html, body {
   padding: 0;
 }
 
-/* -------- 2단 컬럼 컨테이너 -------- */
+/* -------- 본문 컨테이너 (단일 컬럼; multi-column은 WeasyPrint 호환성 문제로 비활성) -------- */
 .columns {
-  column-count: 2;
-  column-gap: 6mm;
-  column-rule: 0.4pt solid #e8e8e8;
-  column-fill: balance;
+  /* column-count: 1; (multi-column 미사용 — 콘텐츠 누락 방지) */
 }
-/* 컬럼 안에서 끊기지 않게 */
 .columns > * {
   break-inside: avoid;
   page-break-inside: avoid;
-}
-/* 헤더/표지는 양쪽 컬럼 모두 차지 */
-.subject-header,
-.chapter-header,
-.solutions-title,
-.cover {
-  column-span: all;
-  -webkit-column-span: all;
 }
 
 p { margin: 0; padding: 0; }
