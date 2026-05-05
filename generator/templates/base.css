@@ -3,7 +3,7 @@
    2026-05-04 WeasyPrint 전환
    ========================================================================= */
 
-/* -------- Pretendard 폰트 (5 weight) -------- */
+/* -------- Pretendard 폰트 (2 weight: Regular·Bold만 — 클라우드 속도) -------- */
 @font-face {
   font-family: 'Pretendard';
   font-weight: 400;
@@ -12,27 +12,9 @@
 }
 @font-face {
   font-family: 'Pretendard';
-  font-weight: 500;
-  font-style: normal;
-  src: url('../../fonts/Pretendard-Medium.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Pretendard';
-  font-weight: 600;
-  font-style: normal;
-  src: url('../../fonts/Pretendard-SemiBold.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Pretendard';
   font-weight: 700;
   font-style: normal;
   src: url('../../fonts/Pretendard-Bold.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Pretendard';
-  font-weight: 900;
-  font-style: normal;
-  src: url('../../fonts/Pretendard-Black.woff2') format('woff2');
 }
 
 /* -------- 페이지 -------- */
@@ -44,13 +26,13 @@
     content: counter(page) " / " counter(pages);
     font-size: 9pt;
     color: #999;
-    font-weight: 500;
+    font-weight: 400;
   }
   @top-right {
     content: string(page-title);
     font-size: 8.5pt;
     color: #888;
-    font-weight: 500;
+    font-weight: 400;
   }
 }
 
@@ -95,14 +77,14 @@ p { margin: 0; padding: 0; }
 }
 .cover .title {
   font-size: 24pt;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   margin-bottom: 8mm;
   color: #1a1a1a;
 }
 .cover .subtitle {
   font-size: 12pt;
-  font-weight: 500;
+  font-weight: 400;
   color: #666;
   margin-bottom: 4mm;
 }
@@ -120,7 +102,7 @@ p { margin: 0; padding: 0; }
 /* -------- 과목 헤더 -------- */
 .subject-header {
   font-size: 14pt;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.015em;
   color: #1a1a1a;
   border-bottom: 2pt solid #1a1a1a;
@@ -133,7 +115,7 @@ p { margin: 0; padding: 0; }
 .subject-header::before {
   content: "■  ";
   color: #cc0000;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 /* 첫 과목 헤더는 페이지 분리 안 함 (표지 다음 자연스럽게) */
@@ -227,7 +209,7 @@ p { margin: 0; padding: 0; }
   color: #1a1a1a;
 }
 .choices li .marker {
-  font-weight: 600;
+  font-weight: 400;
   margin-right: 1.5mm;
   display: inline-block;
   min-width: 4mm;
@@ -248,7 +230,7 @@ p { margin: 0; padding: 0; }
 /* -------- 정답·해설 영역 -------- */
 .solutions-title {
   font-size: 22pt;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   text-align: center;
   margin: 30mm 0 10mm 0;
@@ -282,14 +264,14 @@ p { margin: 0; padding: 0; }
   flex-wrap: wrap;
 }
 .solution-num {
-  font-weight: 800;
+  font-weight: 700;
   font-size: 10pt;
   color: #1a1a1a;
   margin-right: 1.5mm;
 }
 .answer-mark {
   color: #cc0000;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 10.5pt;
   margin-right: 2mm;
 }

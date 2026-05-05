@@ -423,7 +423,7 @@ def render_pdf(questions: list[dict], filters: dict, out_path: Path) -> Path:
     subject_summary = " · ".join(subj_names)
     generated_at = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    # Jinja2 환경은 module-level 캐시(_JINJA_ENV) 재사용 — 템플릿 컴파일 매번 안 함
+    # 두 템플릿을 한 HTML로 합쳐 render 1회 (이전: 2회 → 절반 시간)
     ws_html = _JINJA_ENV.get_template("worksheet.html").render(
         title=title, subtitle=subtitle, generated_at=generated_at,
         total_questions=total, subject_summary=subject_summary,
@@ -431,15 +431,20 @@ def render_pdf(questions: list[dict], filters: dict, out_path: Path) -> Path:
     )
     sol_html = _JINJA_ENV.get_template("solutions.html").render(groups=groups)
 
-    # 두 HTML을 합쳐 단일 PDF — base.css·font_config는 module-level 캐시 재사용
-    # (이전: HTML(<link>로 base.css 자동 로드) → 매번 CSS 파싱·폰트 등록.
-    #  이제: stylesheet 인자로 전달 → cached object 재사용 → 두 번째 호출부터 매우 빠름)
+    # 각 템플릿의 <body>...</body> 영역만 추출해 결합
+    m_ws = re.search(r"<body[^>]*>(.*?)</body>", ws_html, re.DOTALL)
+    m_sol = re.search(r"<body[^>]*>(.*?)</body>", sol_html, re.DOTALL)
+    ws_body = m_ws.group(1) if m_ws else ws_html
+    sol_body = m_sol.group(1) if m_sol else sol_html
+    combined_html = (
+        '<!doctype html><html lang="ko"><head><meta charset="utf-8"></head>'
+        f'<body>{ws_body}{sol_body}</body></html>'
+    )
+
     base_url = str(TEMPLATES_DIR) + "/"
-    render_kwargs = {"stylesheets": [_BASE_CSS], "font_config": _FONT_CONFIG}
-    ws_doc = HTML(string=ws_html, base_url=base_url).render(**render_kwargs)
-    sol_doc = HTML(string=sol_html, base_url=base_url).render(**render_kwargs)
-    all_pages = list(ws_doc.pages) + list(sol_doc.pages)
-    ws_doc.copy(all_pages).write_pdf(str(out_path))
+    HTML(string=combined_html, base_url=base_url).write_pdf(
+        str(out_path), stylesheets=[_BASE_CSS], font_config=_FONT_CONFIG,
+    )
     return out_path
 
 
