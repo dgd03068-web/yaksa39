@@ -1,9 +1,26 @@
 """SQLite schema and connection helper."""
+import os
+import shutil
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
 from config import DB_PATH
+
+
+# ── Streamlit Cloud 감지: /mount/src/ 는 read-only → DB를 /tmp로 복사 후 사용 ──
+def _resolve_db_path() -> Path:
+    src = Path(DB_PATH)
+    is_readonly_mount = str(src).startswith("/mount/") or os.environ.get("STREAMLIT_RUNTIME_ENV") == "cloud"
+    if is_readonly_mount:
+        dst = Path("/tmp/yaksa39_questions.db")
+        if not dst.exists() or dst.stat().st_size != src.stat().st_size:
+            shutil.copy(src, dst)
+        return dst
+    return src
+
+
+_RUNTIME_DB = _resolve_db_path()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS exams (
@@ -88,8 +105,9 @@ def init_db(path: Path = DB_PATH) -> None:
 
 
 @contextmanager
-def get_conn(path: Path = DB_PATH):
-    conn = sqlite3.connect(path)
+def get_conn(path: Path = None):
+    target = path or _RUNTIME_DB
+    conn = sqlite3.connect(target, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     try:
