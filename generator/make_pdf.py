@@ -24,7 +24,8 @@ from html import escape as html_escape
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from weasyprint import HTML
+from weasyprint import HTML, CSS
+from weasyprint.text.fonts import FontConfiguration
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -35,6 +36,14 @@ CHOICE_LABELS = ["①", "②", "③", "④", "⑤"]
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 FONTS_DIR = Path(__file__).parent.parent / "fonts"
+
+# ── WeasyPrint 무거운 객체 module-level 캐시 (cold start 후 재호출 빠름) ──
+_FONT_CONFIG = FontConfiguration()
+_BASE_CSS = CSS(filename=str(TEMPLATES_DIR / "base.css"), font_config=_FONT_CONFIG)
+_JINJA_ENV = Environment(
+    loader=FileSystemLoader(str(TEMPLATES_DIR)),
+    autoescape=select_autoescape(["html"]),
+)
 
 
 # ─────────────────────── 본문 줄바꿈·정리 ───────────────────────
@@ -414,23 +423,21 @@ def render_pdf(questions: list[dict], filters: dict, out_path: Path) -> Path:
     subject_summary = " · ".join(subj_names)
     generated_at = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    env = Environment(
-        loader=FileSystemLoader(str(TEMPLATES_DIR)),
-        autoescape=select_autoescape(['html']),
-    )
-    ws_html = env.get_template("worksheet.html").render(
+    # Jinja2 환경은 module-level 캐시(_JINJA_ENV) 재사용 — 템플릿 컴파일 매번 안 함
+    ws_html = _JINJA_ENV.get_template("worksheet.html").render(
         title=title, subtitle=subtitle, generated_at=generated_at,
         total_questions=total, subject_summary=subject_summary,
         groups=groups,
     )
-    sol_html = env.get_template("solutions.html").render(
-        groups=groups,
-    )
+    sol_html = _JINJA_ENV.get_template("solutions.html").render(groups=groups)
 
-    # 두 HTML을 합쳐 단일 PDF
+    # 두 HTML을 합쳐 단일 PDF — base.css·font_config는 module-level 캐시 재사용
+    # (이전: HTML(<link>로 base.css 자동 로드) → 매번 CSS 파싱·폰트 등록.
+    #  이제: stylesheet 인자로 전달 → cached object 재사용 → 두 번째 호출부터 매우 빠름)
     base_url = str(TEMPLATES_DIR) + "/"
-    ws_doc = HTML(string=ws_html, base_url=base_url).render()
-    sol_doc = HTML(string=sol_html, base_url=base_url).render()
+    render_kwargs = {"stylesheets": [_BASE_CSS], "font_config": _FONT_CONFIG}
+    ws_doc = HTML(string=ws_html, base_url=base_url).render(**render_kwargs)
+    sol_doc = HTML(string=sol_html, base_url=base_url).render(**render_kwargs)
     all_pages = list(ws_doc.pages) + list(sol_doc.pages)
     ws_doc.copy(all_pages).write_pdf(str(out_path))
     return out_path
