@@ -9,18 +9,21 @@ from config import DB_PATH
 
 
 # ── Streamlit Cloud 감지: /mount/src/ 는 read-only → DB를 /tmp로 복사 후 사용 ──
+# 매 호출마다 mtime 체크해 source DB가 갱신되면 자동 재복사. (git push 후 옛 cache 유지 방지)
 def _resolve_db_path() -> Path:
     src = Path(DB_PATH)
     is_readonly_mount = str(src).startswith("/mount/") or os.environ.get("STREAMLIT_RUNTIME_ENV") == "cloud"
-    if is_readonly_mount:
-        dst = Path("/tmp/yaksa39_questions.db")
-        if not dst.exists() or dst.stat().st_size != src.stat().st_size:
-            shutil.copy(src, dst)
-        return dst
-    return src
-
-
-_RUNTIME_DB = _resolve_db_path()
+    if not is_readonly_mount:
+        return src
+    dst = Path("/tmp/yaksa39_questions.db")
+    needs_copy = (
+        not dst.exists()
+        or dst.stat().st_mtime < src.stat().st_mtime
+        or dst.stat().st_size != src.stat().st_size
+    )
+    if needs_copy:
+        shutil.copy2(src, dst)
+    return dst
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS exams (
@@ -106,7 +109,8 @@ def init_db(path: Path = DB_PATH) -> None:
 
 @contextmanager
 def get_conn(path: Path = None):
-    target = path or _RUNTIME_DB
+    # 매 호출마다 _resolve_db_path() — source DB가 갱신되면 즉시 반영
+    target = path or _resolve_db_path()
     conn = sqlite3.connect(target, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")

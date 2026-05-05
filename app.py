@@ -54,14 +54,14 @@ def _check_password() -> bool:
 _check_password()
 
 # ────────────────── DB helpers ──────────────────
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def get_subjects():
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(
             "SELECT id, name, session FROM subjects ORDER BY session, id"
         ).fetchall()]
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def get_chapters(subject_id: int = None):
     sql = """
       SELECT c.id, c.name, c.chapter_no,
@@ -79,7 +79,7 @@ def get_chapters(subject_id: int = None):
     with get_conn() as conn:
         return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def get_yc_tree():
     """약물치료학(가상) 트리: {카테고리명: [(leaf_id, leaf_name, qcount), ...]}"""
     YC_SUBJECT_ID = 6
@@ -99,7 +99,7 @@ def get_yc_tree():
     return dict(tree)
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def get_yj_tree():
     """약제학 sub-chapter 트리: [{id, name, qcnt}, ...] (chapter_no 순)"""
     YJ_PARENT_ID = 6  # 약제학 parent
@@ -114,7 +114,7 @@ def get_yj_tree():
     return [{'id': r['id'], 'name': r['name'], 'qcnt': r['qcnt']} for r in rows]
 
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def chapter_qcnt(chapter_ids):
     """주어진 chapter_id들의 문제 수 합."""
     if not chapter_ids:
