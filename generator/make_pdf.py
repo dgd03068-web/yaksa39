@@ -287,20 +287,29 @@ def fetch_questions(filters: dict) -> list[dict]:
     """
     out: list[dict] = []
     with get_conn() as conn:
-        for row in conn.execute(sql, params):
+        rows = conn.execute(sql, params).fetchall()
+        ranges = filters.get("qnum_ranges") or {}
+        for row in rows:
             d = dict(row)
-            ranges = filters.get("qnum_ranges") or {}
             r = ranges.get(d["subject_id"])
             if r and not (r[0] <= d["qnum"] <= r[1]):
                 continue
-            d["choices"] = [
-                (c["number"], c["text"])
-                for c in conn.execute(
-                    "SELECT number, text FROM choices WHERE question_id = ? ORDER BY number",
-                    (d["id"],),
-                )
-            ]
             out.append(d)
+        # choices: N+1 쿼리 → 한 번에 IN으로 (대량 출력 시 큰 속도 차이)
+        if out:
+            qids = [q["id"] for q in out]
+            placeholders = ",".join("?" * len(qids))
+            choice_rows = conn.execute(
+                f"SELECT question_id, number, text FROM choices "
+                f"WHERE question_id IN ({placeholders}) ORDER BY question_id, number",
+                qids,
+            ).fetchall()
+            from collections import defaultdict
+            choices_map = defaultdict(list)
+            for c in choice_rows:
+                choices_map[c["question_id"]].append((c["number"], c["text"]))
+            for q in out:
+                q["choices"] = choices_map.get(q["id"], [])
     return out
 
 

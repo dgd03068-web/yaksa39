@@ -273,26 +273,52 @@ with tab1:
 
     cl, cr = st.columns([2, 1])
     with cl:
-        st.subheader(f"선택 결과: {len(qs_preview)}문제")
+        n_q = len(qs_preview)
+        st.subheader(f"선택 결과: {n_q}문제")
         if qs_preview:
             from collections import Counter
             sub_dist = Counter(q['subject'] for q in qs_preview)
             for s, n in sub_dist.most_common():
                 st.write(f"- {s}: {n}문제")
+
+            # 예상 소요 시간 (경험치: 클라우드 ~10문제/초)
+            est_sec = max(3, int(n_q / 8))
+            if n_q > 200:
+                st.warning(f"⏱ 예상 소요: 약 **{est_sec}초** (문제가 많아 1-2분까지 걸릴 수 있음). "
+                           f"메모리 한계로 실패할 가능성도 있어 **단원 1-2개씩 나눠 출력**을 권장합니다.")
+            elif n_q > 50:
+                st.info(f"⏱ 예상 소요: 약 **{est_sec}초**")
+            else:
+                st.caption(f"⏱ 예상 소요: 약 **{est_sec}초**")
         else:
             st.info("사이드바에서 과목·단원을 선택하세요.")
 
     with cr:
         if st.button("📄 학습지 PDF 출력", type="primary", disabled=not qs_preview):
+            import time
+            t_start = time.time()
+            progress = st.progress(0, text="📚 데이터 조회 중...")
             try:
-                with st.spinner("생성 중..."):
-                    out_path = make_worksheet(filters)
-                st.success(f"생성: {out_path.name}")
+                # 1. fetch (이미 qs_preview에 있으나 fresh 보장 위해 재조회)
+                progress.progress(15, text="📚 문제·해설 조회 중...")
+                # 2. 렌더링·PDF 생성
+                progress.progress(35, text=f"🎨 PDF 렌더링 중 ({n_q}문제)... 30초~2분 소요")
+                out_path = make_worksheet(filters)
+                progress.progress(95, text="💾 다운로드 준비 중...")
                 with open(out_path, 'rb') as f:
-                    st.download_button("⬇ PDF 다운로드", f, file_name=out_path.name, mime='application/pdf')
-                st.caption(f"저장 경로: `{out_path}`")
+                    pdf_bytes = f.read()
+                progress.progress(100, text="✅ 완료!")
+                elapsed = time.time() - t_start
+                st.success(f"생성 완료 ({elapsed:.1f}초): {out_path.name} · {len(pdf_bytes)//1024} KB")
+                st.download_button(
+                    "⬇ PDF 다운로드", pdf_bytes,
+                    file_name=out_path.name, mime='application/pdf',
+                    type="primary",
+                )
             except Exception as e:
-                st.error(f"오류: {e}")
+                progress.empty()
+                st.error(f"❌ 오류: {type(e).__name__}: {e}")
+                st.caption("문제가 너무 많거나 메모리 한계일 수 있어요. 단원 수를 줄여 다시 시도하세요.")
 
 # ───────────── Tab 2: 오늘의 학습지 (얼리버드) ─────────────
 with tab2:
