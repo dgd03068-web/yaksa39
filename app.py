@@ -578,4 +578,4 @@ with tab4:
         """).fetchall()
     import pandas as pd
     df = pd.DataFrame([dict(r) for r in recent])
-    st.dataframe(df, use_container_width=True, height=300)
+    st.dataframe(df, width='stretch', height=300)
