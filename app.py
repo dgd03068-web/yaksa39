@@ -163,11 +163,13 @@ NEW_TAXONOMY = {
     "🧬 1. 생명약학 (100)": [
         # 생화학 100문제 6단원 분류 (chapter_id 107-112)
         ("생화학·분자생물학", [107, 108, 109, 110, 111, 112]),
-        ("미생물학·면역학", [2]),
+        # 미생물학·면역학 98문제 6단원 분류 (chapter_id 119-124)
+        ("미생물학·면역학", [119, 120, 121, 122, 123, 124]),
         ("약리학", [5]),         # 현재 chapter 이름은 "약물학"
         # 예방약학 96문제 5단원 분류 (chapter_id 102-106)
         ("예방약학", [102, 103, 104, 105, 106]),
-        ("병태생리학", [3]),
+        # 병태생리학 107문제 6단원 분류 (chapter_id 125-130)
+        ("병태생리학", [125, 126, 127, 128, 129, 130]),
     ],
     "🏭 2. 산업약학 (90)": [
         ("물리약학", [7]),
@@ -253,6 +255,34 @@ def sidebar_filter():
                 for s in prev_tree:
                     if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
                                    key=f"prev_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 🦠 미생물학·면역학 (6단원 트리, 생명약학 안의 핵심) ─────
+    mic_tree = get_subtree(2)
+    if mic_tree:
+        mic_total = sum(s['qcnt'] for s in mic_tree)
+        with st.sidebar.expander(f"🦠 1-3. 미생물학·면역학 ({mic_total}문제)", expanded=False):
+            all_mic_cids = [s['id'] for s in mic_tree]
+            if st.checkbox(f"📦 미생물학 전체 ({mic_total})", key="mic_all_root"):
+                chap_ids.extend(all_mic_cids)
+            else:
+                for s in mic_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"mic_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 🩺 병태생리학 (6단원 트리, 생명약학 안의 핵심) ─────
+    pat_tree = get_subtree(3)
+    if pat_tree:
+        pat_total = sum(s['qcnt'] for s in pat_tree)
+        with st.sidebar.expander(f"🩺 1-4. 병태생리학 ({pat_total}문제)", expanded=False):
+            all_pat_cids = [s['id'] for s in pat_tree]
+            if st.checkbox(f"📦 병태생리학 전체 ({pat_total})", key="pat_all_root"):
+                chap_ids.extend(all_pat_cids)
+            else:
+                for s in pat_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"pat_leaf_{s['id']}"):
                         chap_ids.append(s['id'])
 
     # ───── 🧪 약제학 sub-tree (1-7장 + 약동학 8단원 개별 선택) ─────
