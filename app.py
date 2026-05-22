@@ -115,6 +115,21 @@ def get_yj_tree():
 
 
 @st.cache_data(ttl=10)
+def get_law_tree():
+    """약사법규 sub-chapter 트리: [{id, name, qcnt}, ...] (chapter_no 순)"""
+    LAW_PARENT_ID = 15  # 약사법규 parent
+    with get_conn() as conn:
+        rows = conn.execute("""
+          SELECT c.id, c.name, c.chapter_no,
+                 (SELECT COUNT(*) FROM questions WHERE chapter_id=c.id) AS qcnt
+          FROM chapters c
+          WHERE c.parent_id=?
+          ORDER BY c.chapter_no
+        """, (LAW_PARENT_ID,)).fetchall()
+    return [{'id': r['id'], 'name': r['name'], 'qcnt': r['qcnt']} for r in rows]
+
+
+@st.cache_data(ttl=10)
 def chapter_qcnt(chapter_ids):
     """주어진 chapter_id들의 문제 수 합."""
     if not chapter_ids:
@@ -232,6 +247,20 @@ def sidebar_filter():
                             if st.checkbox(f"      └ {leaf['name']} ({leaf['qcnt']})",
                                            key=f"yc_leaf_{leaf['id']}"):
                                 chap_ids.append(leaf['id'])
+
+    # ───── 📖 약사법규 (6단원 트리, 보건의약관계법규 안의 핵심) ─────
+    law_tree = get_law_tree()
+    if law_tree:
+        law_total = sum(s['qcnt'] for s in law_tree)
+        with st.sidebar.expander(f"📖 4-1. 약사법규 ({law_total}문제)", expanded=False):
+            all_law_cids = [s['id'] for s in law_tree]
+            if st.checkbox(f"📦 약사법규 전체 ({law_total})", key="law_all_root"):
+                chap_ids.extend(all_law_cids)
+            else:
+                for s in law_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"law_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
 
     st.sidebar.divider()
     include_hidden = st.sidebar.checkbox("비공개 자료 포함", value=True)
