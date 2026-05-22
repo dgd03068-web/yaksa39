@@ -236,7 +236,12 @@ def _render_setup() -> None:
     mode_label = c1.radio("모드", ["학습 모드 (한 문제씩 즉시 채점)", "시험 모드 (일괄 채점)"])
     mode = "study" if mode_label.startswith("학습") else "exam"
     max_n = len(questions)
-    n = c2.slider("문제 수", 1, max_n, min(20, max_n))
+    if max_n <= 1:
+        # 문제가 1개뿐이면 슬라이더(min<max 필요)를 만들 수 없음 → 고정
+        n = max_n
+        c2.caption(f"문제 수: {max_n}개")
+    else:
+        n = c2.slider("문제 수", 1, max_n, min(20, max_n))
 
     if st.button("🚀 풀이 시작", type="primary"):
         _start_quiz(questions[:n] if n < len(questions) else list(questions), mode)
