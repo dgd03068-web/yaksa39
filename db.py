@@ -75,7 +75,14 @@ CREATE TABLE IF NOT EXISTS attempts (
   id INTEGER PRIMARY KEY,
   question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
   attempted_at TEXT NOT NULL,
-  is_correct INTEGER
+  is_correct INTEGER,
+  selected_answer INTEGER,
+  mode TEXT
+);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+  question_id INTEGER PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS worksheets (
@@ -97,6 +104,7 @@ CREATE TABLE IF NOT EXISTS lecture_files (
 
 CREATE INDEX IF NOT EXISTS idx_questions_exam_subject ON questions(exam_id, subject_id);
 CREATE INDEX IF NOT EXISTS idx_questions_chapter ON questions(chapter_id);
+CREATE INDEX IF NOT EXISTS idx_attempts_question ON attempts(question_id);
 CREATE INDEX IF NOT EXISTS idx_choices_question ON choices(question_id);
 """
 

@@ -17,6 +17,7 @@ import streamlit as st
 from db import get_conn  # noqa: E402
 from config import DB_PATH, OUTPUT_DIR  # noqa: E402
 from generator.make_pdf import make_worksheet, fetch_questions  # noqa: E402
+from quiz import render_quiz_tab  # noqa: E402
 
 # ────────────────── 상수 ──────────────────
 EXAM_DATE = dt.date(2027, 1, 15)  # 77회 시험일 (얼리버드 계획표 기준)
@@ -130,6 +131,20 @@ def get_law_tree():
 
 
 @st.cache_data(ttl=10)
+def get_subtree(parent_id: int):
+    """주어진 parent chapter의 sub-chapter 트리: [{id, name, qcnt}, ...] (chapter_no 순)"""
+    with get_conn() as conn:
+        rows = conn.execute("""
+          SELECT c.id, c.name, c.chapter_no,
+                 (SELECT COUNT(*) FROM questions WHERE chapter_id=c.id) AS qcnt
+          FROM chapters c
+          WHERE c.parent_id=?
+          ORDER BY c.chapter_no
+        """, (parent_id,)).fetchall()
+    return [{'id': r['id'], 'name': r['name'], 'qcnt': r['qcnt']} for r in rows]
+
+
+@st.cache_data(ttl=10)
 def chapter_qcnt(chapter_ids):
     """주어진 chapter_id들의 문제 수 합."""
     if not chapter_ids:
@@ -146,15 +161,18 @@ def chapter_qcnt(chapter_ids):
 # 대분류 → [(소분류 라벨, [chapter_id, ...]), ...]
 NEW_TAXONOMY = {
     "🧬 1. 생명약학 (100)": [
-        ("생화학·분자생물학", [1]),
+        # 생화학 100문제 6단원 분류 (chapter_id 107-112)
+        ("생화학·분자생물학", [107, 108, 109, 110, 111, 112]),
         ("미생물학·면역학", [2]),
         ("약리학", [5]),         # 현재 chapter 이름은 "약물학"
-        ("예방약학", [4]),
+        # 예방약학 96문제 5단원 분류 (chapter_id 102-106)
+        ("예방약학", [102, 103, 104, 105, 106]),
         ("병태생리학", [3]),
     ],
     "🏭 2. 산업약학 (90)": [
         ("물리약학", [7]),
-        ("의약품 합성학·의약화학", [9]),  # 약물합성학
+        # 의약화학(약물합성학) 91문제 6단원 분류 (chapter_id 113-118)
+        ("의약품 합성학·의약화학", [113, 114, 115, 116, 117, 118]),
         ("약품분석학", [8]),
         # 약제학은 별도 sub-tree expander로 처리 (1-7장 + PK 개별 선택). 산업약학 한 번에 = 약제학 전체 포함하기 위해 leaf 8개를 같이 묶어둠.
         ("약제학", [88, 89, 90, 91, 92, 93, 94, 95]),
@@ -209,6 +227,34 @@ def sidebar_filter():
                     if st.checkbox(f"{sub_label} ({qcnt})", key=f"sub_{big_label}_{sub_label}"):
                         chap_ids.extend(cids)
 
+    # ───── 🧬 생화학 (6단원 트리, 생명약학 안의 핵심) ─────
+    bio_tree = get_subtree(1)
+    if bio_tree:
+        bio_total = sum(s['qcnt'] for s in bio_tree)
+        with st.sidebar.expander(f"🧬 1-1. 생화학 ({bio_total}문제)", expanded=False):
+            all_bio_cids = [s['id'] for s in bio_tree]
+            if st.checkbox(f"📦 생화학 전체 ({bio_total})", key="bio_all_root"):
+                chap_ids.extend(all_bio_cids)
+            else:
+                for s in bio_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"bio_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 🛡 예방약학 (5단원 트리, 생명약학 안의 핵심) ─────
+    prev_tree = get_subtree(4)
+    if prev_tree:
+        prev_total = sum(s['qcnt'] for s in prev_tree)
+        with st.sidebar.expander(f"🛡 1-2. 예방약학 ({prev_total}문제)", expanded=False):
+            all_prev_cids = [s['id'] for s in prev_tree]
+            if st.checkbox(f"📦 예방약학 전체 ({prev_total})", key="prev_all_root"):
+                chap_ids.extend(all_prev_cids)
+            else:
+                for s in prev_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"prev_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
     # ───── 🧪 약제학 sub-tree (1-7장 + 약동학 8단원 개별 선택) ─────
     yj_tree = get_yj_tree()
     if yj_tree:
@@ -221,6 +267,20 @@ def sidebar_filter():
                 for s in yj_tree:
                     if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
                                    key=f"yj_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── ⚗️ 의약화학 (6단원 트리, 산업약학 안의 핵심) ─────
+    mc_tree = get_subtree(9)
+    if mc_tree:
+        mc_total = sum(s['qcnt'] for s in mc_tree)
+        with st.sidebar.expander(f"⚗️ 2-2. 의약화학 ({mc_total}문제)", expanded=False):
+            all_mc_cids = [s['id'] for s in mc_tree]
+            if st.checkbox(f"📦 의약화학 전체 ({mc_total})", key="mc_all_root"):
+                chap_ids.extend(all_mc_cids)
+            else:
+                for s in mc_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"mc_leaf_{s['id']}"):
                         chap_ids.append(s['id'])
 
     # ───── 💊 약물치료학 (16 카테고리 트리, 임상·실무약학 안의 핵심) ─────
@@ -290,7 +350,13 @@ c4.metric("정답 있음", f"{(stats['t']-stats['nan'])*100/stats['t']:.1f}%")
 
 st.divider()
 
-tab1, tab2, tab3, tab4 = st.tabs(["📝 학습지 출력", "📅 오늘의 학습지", "📊 학습 이력", "🛠 데이터 현황"])
+tab1, tabq, tab2, tab3, tab4 = st.tabs(
+    ["📝 학습지 출력", "✏️ 문제 풀이", "📅 오늘의 학습지", "📊 학습 이력", "🛠 데이터 현황"]
+)
+
+# ───────────── Tab Q: 문제 풀이 (퀴즈) ─────────────
+with tabq:
+    render_quiz_tab()
 
 # ───────────── Tab 1: 학습지 출력 ─────────────
 with tab1:
