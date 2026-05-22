@@ -173,19 +173,25 @@ NEW_TAXONOMY = {
         ("병태생리학", [125, 126, 127, 128, 129, 130]),
     ],
     "🏭 2. 산업약학 (90)": [
-        ("물리약학", [7]),
+        # 물리약학 93문제 6단원 분류 (chapter_id 137-142)
+        ("물리약학", [137, 138, 139, 140, 141, 142]),
         # 의약화학(약물합성학) 91문제 6단원 분류 (chapter_id 113-118)
         ("의약품 합성학·의약화학", [113, 114, 115, 116, 117, 118]),
-        ("약품분석학", [8]),
+        # 약품분석학 91문제 6단원 분류 (chapter_id 143-148)
+        ("약품분석학", [143, 144, 145, 146, 147, 148]),
         # 약제학은 별도 sub-tree expander로 처리 (1-7장 + PK 개별 선택). 산업약학 한 번에 = 약제학 전체 포함하기 위해 leaf 8개를 같이 묶어둠.
         ("약제학", [88, 89, 90, 91, 92, 93, 94, 95]),
-        ("생약학·한약제제학", [10, 11]),
+        # 생약학 70문제(149-153) + 한약제제학 22문제(154-157)
+        ("생약학·한약제제학", [149, 150, 151, 152, 153, 154, 155, 156, 157]),
     ],
     # 3. 임상·실무약학 — 약물치료학은 별도 트리, 나머지는 단순
     "🏥 3. 임상·실무약학 (140)": [
-        ("처방검토·조제 (약국실무)", [13]),
-        ("의약품제조관리학", [87]),
-        ("사회약학", [14]),
+        # 약국실무 170문제 6단원 분류 (chapter_id 158-163)
+        ("처방검토·조제 (약국실무)", [158, 159, 160, 161, 162, 163]),
+        # 의약품제조관리학 90문제 5단원 분류 (chapter_id 169-173)
+        ("의약품제조관리학", [169, 170, 171, 172, 173]),
+        # 사회약학 95문제 5단원 분류 (chapter_id 164-168)
+        ("사회약학", [164, 165, 166, 167, 168]),
     ],
     "📖 4. 보건의약관계법규 (20)": [
         # 약사법규 100문제 6단원 분류 (chapter_id 96-101)
@@ -328,6 +334,62 @@ def sidebar_filter():
                                    key=f"mc_leaf_{s['id']}"):
                         chap_ids.append(s['id'])
 
+    # ───── 🌡 물리약학 (6단원 트리, 산업약학 안의 핵심) ─────
+    pp_tree = get_subtree(7)
+    if pp_tree:
+        pp_total = sum(s['qcnt'] for s in pp_tree)
+        with st.sidebar.expander(f"🌡 2-3. 물리약학 ({pp_total}문제)", expanded=False):
+            all_pp_cids = [s['id'] for s in pp_tree]
+            if st.checkbox(f"📦 물리약학 전체 ({pp_total})", key="pp_all_root"):
+                chap_ids.extend(all_pp_cids)
+            else:
+                for s in pp_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"pp_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 🔬 약품분석학 (6단원 트리, 산업약학 안의 핵심) ─────
+    pa_tree = get_subtree(8)
+    if pa_tree:
+        pa_total = sum(s['qcnt'] for s in pa_tree)
+        with st.sidebar.expander(f"🔬 2-4. 약품분석학 ({pa_total}문제)", expanded=False):
+            all_pa_cids = [s['id'] for s in pa_tree]
+            if st.checkbox(f"📦 약품분석학 전체 ({pa_total})", key="pa_all_root"):
+                chap_ids.extend(all_pa_cids)
+            else:
+                for s in pa_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"pa_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 🌿 생약학 (5단원 트리, 산업약학 안의 핵심) ─────
+    ph_tree = get_subtree(10)
+    if ph_tree:
+        ph_total = sum(s['qcnt'] for s in ph_tree)
+        with st.sidebar.expander(f"🌿 2-5. 생약학 ({ph_total}문제)", expanded=False):
+            all_ph_cids = [s['id'] for s in ph_tree]
+            if st.checkbox(f"📦 생약학 전체 ({ph_total})", key="ph_all_root"):
+                chap_ids.extend(all_ph_cids)
+            else:
+                for s in ph_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"ph_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 🍵 한약제제학 (4단원 트리, 산업약학 안의 핵심) ─────
+    hm_tree = get_subtree(11)
+    if hm_tree:
+        hm_total = sum(s['qcnt'] for s in hm_tree)
+        with st.sidebar.expander(f"🍵 2-6. 한약제제학 ({hm_total}문제)", expanded=False):
+            all_hm_cids = [s['id'] for s in hm_tree]
+            if st.checkbox(f"📦 한약제제학 전체 ({hm_total})", key="hm_all_root"):
+                chap_ids.extend(all_hm_cids)
+            else:
+                for s in hm_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"hm_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
     # ───── 💊 약물치료학 (16 카테고리 트리, 임상·실무약학 안의 핵심) ─────
     yc_tree = get_yc_tree()
     if yc_tree:
@@ -352,6 +414,48 @@ def sidebar_filter():
                             if st.checkbox(f"      └ {leaf['name']} ({leaf['qcnt']})",
                                            key=f"yc_leaf_{leaf['id']}"):
                                 chap_ids.append(leaf['id'])
+
+    # ───── 🏥 약국실무 (6단원 트리, 임상·실무약학 안의 핵심) ─────
+    pr_tree = get_subtree(13)
+    if pr_tree:
+        pr_total = sum(s['qcnt'] for s in pr_tree)
+        with st.sidebar.expander(f"🏥 3-2. 약국실무 ({pr_total}문제)", expanded=False):
+            all_pr_cids = [s['id'] for s in pr_tree]
+            if st.checkbox(f"📦 약국실무 전체 ({pr_total})", key="pr_all_root"):
+                chap_ids.extend(all_pr_cids)
+            else:
+                for s in pr_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"pr_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 📋 사회약학 (5단원 트리, 임상·실무약학 안의 핵심) ─────
+    sp_tree = get_subtree(14)
+    if sp_tree:
+        sp_total = sum(s['qcnt'] for s in sp_tree)
+        with st.sidebar.expander(f"📋 3-3. 사회약학 ({sp_total}문제)", expanded=False):
+            all_sp_cids = [s['id'] for s in sp_tree]
+            if st.checkbox(f"📦 사회약학 전체 ({sp_total})", key="sp_all_root"):
+                chap_ids.extend(all_sp_cids)
+            else:
+                for s in sp_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"sp_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 🏭 의약품제조관리학 (5단원 트리, 임상·실무약학 안의 핵심) ─────
+    gm_tree = get_subtree(87)
+    if gm_tree:
+        gm_total = sum(s['qcnt'] for s in gm_tree)
+        with st.sidebar.expander(f"🏭 3-4. 의약품제조관리학 ({gm_total}문제)", expanded=False):
+            all_gm_cids = [s['id'] for s in gm_tree]
+            if st.checkbox(f"📦 의약품제조관리학 전체 ({gm_total})", key="gm_all_root"):
+                chap_ids.extend(all_gm_cids)
+            else:
+                for s in gm_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"gm_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
 
     # ───── 📖 약사법규 (6단원 트리, 보건의약관계법규 안의 핵심) ─────
     law_tree = get_law_tree()
