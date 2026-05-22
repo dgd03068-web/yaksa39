@@ -165,7 +165,8 @@ NEW_TAXONOMY = {
         ("생화학·분자생물학", [107, 108, 109, 110, 111, 112]),
         # 미생물학·면역학 98문제 6단원 분류 (chapter_id 119-124)
         ("미생물학·면역학", [119, 120, 121, 122, 123, 124]),
-        ("약리학", [5]),         # 현재 chapter 이름은 "약물학"
+        # 약리학 99문제 6단원 분류 (chapter_id 131-136)
+        ("약리학", [131, 132, 133, 134, 135, 136]),
         # 예방약학 96문제 5단원 분류 (chapter_id 102-106)
         ("예방약학", [102, 103, 104, 105, 106]),
         # 병태생리학 107문제 6단원 분류 (chapter_id 125-130)
@@ -283,6 +284,20 @@ def sidebar_filter():
                 for s in pat_tree:
                     if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
                                    key=f"pat_leaf_{s['id']}"):
+                        chap_ids.append(s['id'])
+
+    # ───── 💉 약리학 (6단원 트리, 생명약학 안의 핵심) ─────
+    pharm_tree = get_subtree(5)
+    if pharm_tree:
+        pharm_total = sum(s['qcnt'] for s in pharm_tree)
+        with st.sidebar.expander(f"💉 1-5. 약리학 ({pharm_total}문제)", expanded=False):
+            all_pharm_cids = [s['id'] for s in pharm_tree]
+            if st.checkbox(f"📦 약리학 전체 ({pharm_total})", key="pharm_all_root"):
+                chap_ids.extend(all_pharm_cids)
+            else:
+                for s in pharm_tree:
+                    if st.checkbox(f"  └ {s['name']} ({s['qcnt']})",
+                                   key=f"pharm_leaf_{s['id']}"):
                         chap_ids.append(s['id'])
 
     # ───── 🧪 약제학 sub-tree (1-7장 + 약동학 8단원 개별 선택) ─────
