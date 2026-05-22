@@ -14,6 +14,57 @@ from db import get_conn
 
 CHOICE_LABELS = ["①", "②", "③", "④", "⑤"]
 
+# 문제 풀이 탭 앱 UI 스타일
+_QUIZ_CSS = """
+<style>
+/* Streamlit 기본 크롬 정리 */
+[data-testid="stToolbar"], #MainMenu, footer { display: none !important; }
+[data-testid="stHeader"] { background: transparent; }
+
+/* 배경·여백 */
+.stApp { background: #f2f3f5; }
+.block-container { max-width: 720px; padding-top: 1.4rem; padding-bottom: 5rem; }
+
+/* 문제 카드 */
+.quiz-q {
+  background: #fff; border: 1px solid #e9eaee; border-radius: 16px;
+  padding: 20px 18px; margin: 14px 0 18px;
+  font-size: 17px; line-height: 1.66; color: #16181d;
+  box-shadow: 0 1px 4px rgba(20, 20, 30, .05);
+}
+
+/* 퀴즈 위젯(버튼·라디오) 풀폭 — Streamlit 기본은 content-width */
+div[class*="st-key-study_"], div[class*="st-key-exam_"] { width: 100% !important; }
+
+/* 보기 → 카드형 (학습/시험 모드 라디오) */
+div[class*="st-key-study_radio_"] [role="radiogroup"],
+div[class*="st-key-exam_radio_"] [role="radiogroup"] { gap: 9px; width: 100%; }
+div[class*="st-key-study_radio_"] [role="radiogroup"] > label,
+div[class*="st-key-exam_radio_"] [role="radiogroup"] > label {
+  width: 100%; background: #fff;
+  border: 1.5px solid #e3e5ea; border-radius: 13px;
+  padding: 14px 15px; margin: 0;
+  transition: border-color .12s, background .12s;
+}
+div[class*="st-key-study_radio_"] [role="radiogroup"] > label > div:first-child,
+div[class*="st-key-exam_radio_"] [role="radiogroup"] > label > div:first-child { display: none; }
+div[class*="st-key-study_radio_"] [role="radiogroup"] > label p,
+div[class*="st-key-exam_radio_"] [role="radiogroup"] > label p { font-size: 15.5px; line-height: 1.5; }
+div[class*="st-key-study_radio_"] [role="radiogroup"] > label:has(input:checked),
+div[class*="st-key-exam_radio_"] [role="radiogroup"] > label:has(input:checked) {
+  border-color: #cc0000; background: #fdf3f3;
+}
+
+/* 버튼 */
+.stButton > button, .stFormSubmitButton > button {
+  width: 100%; border-radius: 12px; font-weight: 600; min-height: 46px;
+}
+
+/* 알림 박스 */
+[data-testid="stAlert"] { border-radius: 12px; }
+</style>
+"""
+
 
 # ─────────────────────── DB helpers ───────────────────────
 def _now() -> str:
@@ -163,6 +214,7 @@ def _explanation_html(text: str) -> str:
 
 # ─────────────────────── UI ───────────────────────
 def render_quiz_tab() -> None:
+    st.markdown(_QUIZ_CSS, unsafe_allow_html=True)
     q = st.session_state.setdefault("quiz", {"phase": "setup"})
     phase = q.get("phase", "setup")
     if phase == "setup":
@@ -243,7 +295,7 @@ def _render_setup() -> None:
     else:
         n = c2.slider("문제 수", 1, max_n, min(20, max_n))
 
-    if st.button("🚀 풀이 시작", type="primary"):
+    if st.button("🚀 풀이 시작", type="primary", key="study_start"):
         _start_quiz(questions[:n] if n < len(questions) else list(questions), mode)
 
 
@@ -261,7 +313,9 @@ def _bookmark_button(qid: int, key_prefix: str) -> None:
 
 
 def _render_question_body(q: dict) -> None:
-    st.markdown(f"##### {q['body']}")
+    import html as _html
+    body = _html.escape(q["body"] or "").replace("\n", "<br>")
+    st.markdown(f"<div class='quiz-q'>{body}</div>", unsafe_allow_html=True)
     if q["has_image"]:
         st.caption("🖼 [그림 비공개] — 원본 시험지 참고")
 
@@ -289,7 +343,8 @@ def _render_study() -> None:
     prev = q["answers"].get(qid)
     sel_idx = nums.index(prev) if prev in nums else None
     picked = st.radio("정답 선택", labels, index=sel_idx,
-                      key=f"study_radio_{qid}", disabled=checked)
+                      key=f"study_radio_{qid}", disabled=checked,
+                      label_visibility="collapsed")
     selected = nums[labels.index(picked)] if picked else None
 
     if not checked:
@@ -417,10 +472,10 @@ def _render_result() -> None:
             st.divider()
 
     c1, c2 = st.columns(2)
-    if c1.button("🔁 새 문제 풀기", type="primary"):
+    if c1.button("🔁 새 문제 풀기", type="primary", key="study_restart"):
         st.session_state["quiz"] = {"phase": "setup"}
         st.session_state.pop("_bm_cache", None)
         st.rerun()
     wrong = [cur["id"] for cur, _, ok in graded if not ok]
-    if wrong and c2.button(f"❌ 오답 {len(wrong)}개 다시 풀기"):
+    if wrong and c2.button(f"❌ 오답 {len(wrong)}개 다시 풀기", key="study_retrywrong"):
         _start_quiz(_fetch_by_ids(wrong), q["mode"])
