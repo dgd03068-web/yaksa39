@@ -704,6 +704,56 @@ with tab3:
                 st.success(f"🔥 연속 학습 {streak}일째 — 계속 가요!")
 
     st.divider()
+    # ── 단원별 정리노트 다운로드 (#7) ──
+    with st.expander("📒 단원별 핵심 정리노트 (113단원 · 시험 직전 회독용)", expanded=False):
+        notes_md_path = Path(__file__).resolve().parent / "notes" / "study_notes.md"
+        if notes_md_path.exists():
+            md_bytes = notes_md_path.read_bytes()
+            st.caption(f"5년 기출 분석 기반 · 113단원 · 각 단원당 200~400자 요약 · {len(md_bytes)//1024} KB")
+
+            cdl, cdr = st.columns(2)
+            with cdl:
+                st.download_button(
+                    "⬇ MD 다운로드", md_bytes,
+                    file_name="약사국시_정리노트.md", mime="text/markdown",
+                    use_container_width=True,
+                )
+            with cdr:
+                # PDF는 동적 생성 (클라우드 환경에서 가능)
+                if st.button("📄 PDF 생성·다운로드", use_container_width=True):
+                    try:
+                        import markdown as _md
+                        from weasyprint import HTML as _HTML
+                        css = """
+                        @page { size: A4; margin: 18mm 16mm 20mm 16mm; @bottom-center { content: counter(page) " / " counter(pages); font-size: 9pt; color: #888; } }
+                        body { font-family: 'Pretendard', sans-serif; font-size: 10.5pt; line-height: 1.65; word-break: keep-all; }
+                        h1 { font-size: 22pt; text-align: center; margin: 12mm 0 6mm; }
+                        h2 { font-size: 12.5pt; margin: 7mm 0 2mm; padding: 3mm 4mm; background: #f7f7f7; border-left: 3pt solid #cc0000; page-break-after: avoid; }
+                        h3 { font-size: 11pt; margin: 4mm 0 1.5mm; color: #444; }
+                        hr { border: none; border-top: 0.5pt dashed #ddd; margin: 5mm 0; }
+                        strong { color: #cc0000; }
+                        """
+                        html_body = _md.markdown(notes_md_path.read_text(encoding="utf-8"),
+                                                  extensions=["extra"])
+                        html = (f"<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
+                                f"<style>{css}</style></head><body>{html_body}</body></html>")
+                        pdf_bytes = _HTML(string=html).write_pdf()
+                        st.download_button(
+                            "⬇ PDF 받기", pdf_bytes,
+                            file_name="약사국시_정리노트.pdf", mime="application/pdf",
+                            type="primary", use_container_width=True,
+                        )
+                    except Exception as e:
+                        st.error(f"PDF 생성 실패: {e}. MD 다운로드를 사용하세요.")
+
+            # 미리보기
+            with st.expander("📖 미리보기 (앞 단원 2개)", expanded=False):
+                preview = notes_md_path.read_text(encoding="utf-8")[:2500]
+                st.markdown(preview)
+        else:
+            st.caption("정리노트 파일이 없습니다. `python -m generator.make_notes` 실행 후 notes/ 폴더에 study_notes.md를 두세요.")
+
+    st.divider()
     st.subheader("출력 이력")
     with get_conn() as conn:
         ws = conn.execute(
