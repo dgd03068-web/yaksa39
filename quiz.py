@@ -199,6 +199,77 @@ def get_chapter_options() -> list[dict]:
     return opts
 
 
+# ─────────────────────── 추가 출제 모드 (Phase C) ───────────────────────
+def _fetch_random(n: int) -> list[dict]:
+    """5년 통합 풀에서 무작위 N문제 — is_skipped=0 + 정답·해설 보유."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT q.id FROM questions q
+            WHERE q.is_skipped = 0
+              AND q.answer BETWEEN 1 AND 5
+              AND q.explanation IS NOT NULL AND q.explanation != ''
+            ORDER BY RANDOM() LIMIT ?
+            """,
+            (n,),
+        ).fetchall()
+        qids = [r[0] for r in rows]
+    return _fetch_by_ids(qids)
+
+
+def _compute_weak_chapters(threshold: float = 0.6, min_attempts: int = 3) -> list[dict]:
+    """attempts 테이블 기반 약점 단원: 시도 ≥ min_attempts AND 정답률 < threshold (낮은 순)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT c.id AS chapter_id, c.name, p.name AS parent, s.name AS subject,
+                   COUNT(*) AS attempts, SUM(a.is_correct) AS correct
+            FROM attempts a
+            JOIN questions q ON a.question_id = q.id
+            JOIN chapters c ON q.chapter_id = c.id
+            LEFT JOIN chapters p ON c.parent_id = p.id
+            JOIN subjects s ON q.subject_id = s.id
+            GROUP BY c.id
+            HAVING attempts >= ?
+            """,
+            (min_attempts,),
+        ).fetchall()
+    out: list[dict] = []
+    for r in rows:
+        attempts = r["attempts"]
+        correct = r["correct"] or 0
+        rate = correct / attempts if attempts else 0.0
+        if rate < threshold:
+            out.append({
+                "chapter_id": r["chapter_id"],
+                "name": r["name"],
+                "parent": r["parent"],
+                "subject": r["subject"],
+                "attempts": attempts,
+                "correct": correct,
+                "rate": rate,
+            })
+    out.sort(key=lambda x: x["rate"])
+    return out
+
+
+def _fetch_bookmarks_meta() -> list[dict]:
+    """북마크된 문제 메타 (UI 목록용) — 최신 순."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT q.id, e.year, s.name AS subject, q.question_number AS qnum,
+                   SUBSTR(q.body, 1, 80) AS body_head, b.created_at
+            FROM bookmarks b
+            JOIN questions q ON b.question_id = q.id
+            JOIN exams e ON q.exam_id = e.id
+            JOIN subjects s ON q.subject_id = s.id
+            ORDER BY b.created_at DESC
+            """
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 # ─────────────────────── 채점 ───────────────────────
 def _grade(q: dict, selected: int | None) -> bool:
     return selected is not None and selected == q["answer"]
@@ -254,7 +325,7 @@ def _render_setup() -> None:
 
     source = st.radio(
         "출제 범위",
-        ["단원별", f"오답노트 ({len(wrong_ids)})", f"북마크 ({len(bookmark_ids)})"],
+        ["단원별", f"오답노트 ({len(wrong_ids)})", f"북마크 ({len(bookmark_ids)})", "🎲 랜덤 모의고사"],
         horizontal=True,
     )
 
@@ -276,11 +347,15 @@ def _render_setup() -> None:
             questions = _fetch_by_ids(list(wrong_ids))
         else:
             st.info("아직 오답이 없습니다. 문제를 풀면 틀린 문제가 여기 모입니다.")
-    else:  # 북마크
+    elif source.startswith("북마크"):
         if bookmark_ids:
             questions = _fetch_by_ids(list(bookmark_ids))
         else:
             st.info("북마크한 문제가 없습니다. 풀이 중 ⭐ 버튼으로 북마크하세요.")
+    else:  # 🎲 랜덤 모의고사
+        rn = st.slider("문제 수 (5년 통합 풀에서 무작위 추출)", 10, 350, 50)
+        st.caption("⚠️ 슬라이더를 움직일 때마다 새로 추출됩니다. 시작 직전에 값을 확정하세요.")
+        questions = _fetch_random(rn)
 
     if not questions:
         return
@@ -299,6 +374,47 @@ def _render_setup() -> None:
 
     if st.button("🚀 풀이 시작", type="primary", key="study_start"):
         _start_quiz(questions[:n] if n < len(questions) else list(questions), mode)
+
+    # ─── 하단 부가 UI: 약점 단원 + 북마크 목록 ───
+    st.divider()
+    with st.expander("📉 약점 단원 자동 추천 (정답률 60% 미만 · 시도 3회 이상)", expanded=False):
+        weak = _compute_weak_chapters(threshold=0.6, min_attempts=3)
+        if not weak:
+            st.caption("아직 시도가 부족합니다. 학습 모드로 더 풀어보세요.")
+        else:
+            for w in weak[:15]:
+                parent = f"{w['parent']} · " if w['parent'] else ""
+                st.markdown(
+                    f"- **{w['subject']} · {parent}{w['name']}** — "
+                    f"정답률 {w['rate']*100:.0f}% ({w['correct']}/{w['attempts']})"
+                )
+            if len(weak) > 15:
+                st.caption(f"…외 {len(weak)-15}개 더")
+            if st.button("📉 약점 단원만 묶어서 풀기", key="weak_quiz_start"):
+                chap_ids = [w["chapter_id"] for w in weak]
+                qs = _fetch_by_chapters(chap_ids, only_explained=True, only_answered=True)
+                if qs:
+                    _start_quiz(qs[:50] if len(qs) > 50 else qs, "study")
+
+    with st.expander(f"⭐ 내 북마크 ({len(bookmark_ids)}개)", expanded=False):
+        if not bookmark_ids:
+            st.caption("아직 북마크한 문제가 없습니다. 풀이 중 ⭐ 버튼으로 추가하세요.")
+        else:
+            marks = _fetch_bookmarks_meta()
+            for m in marks[:30]:
+                c1, c2 = st.columns([10, 1])
+                head = (m["body_head"] or "").replace("\n", " ")
+                c1.markdown(f"**{m['year']} {m['subject']} {m['qnum']}번** — {head}")
+                if c2.button("✖", key=f"unbm_{m['id']}", help="북마크 해제"):
+                    toggle_bookmark(m["id"])
+                    st.session_state.pop("_bm_cache", None)
+                    st.rerun()
+            if len(marks) > 30:
+                st.caption(f"…외 {len(marks)-30}개 더")
+            if st.button("⭐ 북마크 전체 학습 모드로 풀기", key="bm_all_quiz"):
+                qs = _fetch_by_ids([m["id"] for m in marks])
+                if qs:
+                    _start_quiz(qs, "study")
 
 
 def _bookmark_button(qid: int, key_prefix: str) -> None:
