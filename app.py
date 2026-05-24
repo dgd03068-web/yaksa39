@@ -499,8 +499,9 @@ c4.metric("정답 있음", f"{(stats['t']-stats['nan'])*100/stats['t']:.1f}%")
 
 st.divider()
 
-tab1, tabq, tab2, tab3, tab4 = st.tabs(
-    ["📝 학습지 출력", "✏️ 문제 풀이", "📅 오늘의 학습지", "📊 학습 이력", "🛠 데이터 현황"]
+tab1, tabq, tab2, tab3, tab_drug, tab4 = st.tabs(
+    ["📝 학습지 출력", "✏️ 문제 풀이", "📅 오늘의 학습지", "📊 학습 이력",
+     "💊 약물 라이브러리", "🛠 데이터 현황"]
 )
 
 # ───────────── Tab Q: 문제 풀이 (퀴즈) ─────────────
@@ -739,7 +740,66 @@ with tab3:
         else:
             st.error("해당 qid 없음")
 
-# ───────────── Tab 4: 데이터 현황 ─────────────
+# ───────────── Tab 5: 약물 라이브러리 (#11) ─────────────
+with tab_drug:
+    st.subheader("💊 빈출 약물 라이브러리")
+    st.caption("5년 기출 출제 빈도 상위 80개 약물 — 구조식·SMILES·약리정보")
+
+    drug_q = st.text_input("🔍 약물명 검색 (한글/영문)",
+                           placeholder="예: 아스피린, lisinopril, 스타틴")
+
+    with get_conn() as conn:
+        all_classes = [r[0] for r in conn.execute(
+            "SELECT DISTINCT drug_class FROM drugs WHERE drug_class!='' ORDER BY drug_class"
+        ).fetchall()]
+    klass = st.multiselect("약효군 필터 (미선택 = 전체)", all_classes,
+                            placeholder="약효군 선택")
+
+    # 쿼리
+    where = []
+    params: list = []
+    if drug_q:
+        where.append("(name_ko LIKE ? OR name_en LIKE ? OR drug_class LIKE ?)")
+        ql = drug_q.strip().lower()
+        params.extend([f"%{drug_q.strip()}%", f"%{ql}%", f"%{drug_q.strip()}%"])
+    if klass:
+        where.append("drug_class IN ({})".format(",".join("?" * len(klass))))
+        params.extend(klass)
+    sql = "SELECT * FROM drugs"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY exam_count DESC, name_ko"
+
+    with get_conn() as conn:
+        drugs = conn.execute(sql, params).fetchall()
+
+    st.caption(f"검색 결과: **{len(drugs)}개**")
+
+    for d in drugs:
+        title = f"{d['name_ko'] or '?'} ({d['name_en']}) — {d['drug_class'] or '미분류'} · 출제 {d['exam_count']}회"
+        with st.expander(title, expanded=False):
+            c1, c2 = st.columns([1, 2])
+            if d["image_url"]:
+                try:
+                    c1.image(d["image_url"], width=200)
+                except Exception:
+                    c1.caption("(이미지 로드 실패)")
+            else:
+                c1.caption("(단백질·항체 등 구조식 표기 불가)")
+            c2.markdown(f"**약효군**: {d['drug_class'] or '—'}")
+            c2.markdown(f"**핵심**: {d['description'] or '—'}")
+            if d["mw"]:
+                c2.caption(f"분자량 {d['mw']:.2f} g/mol")
+            if d["smiles"]:
+                c2.markdown(f"**SMILES**: `{d['smiles']}`")
+            if d["cid"]:
+                c2.markdown(
+                    f"🔗 [PubChem CID {d['cid']}]"
+                    f"(https://pubchem.ncbi.nlm.nih.gov/compound/{d['cid']})"
+                )
+
+
+# ───────────── Tab 6: 데이터 현황 ─────────────
 with tab4:
     # ── 피드백 인박스 (#9) ──
     with get_conn() as conn:

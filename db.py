@@ -87,6 +87,22 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS drugs (
+  id INTEGER PRIMARY KEY,
+  name_ko TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  cid INTEGER,                 -- PubChem CID
+  smiles TEXT,                 -- canonical SMILES
+  mw REAL,                     -- 분자량
+  drug_class TEXT,             -- 약효군 (예: "Statin", "ACE inhibitor")
+  description TEXT,            -- 핵심 설명 1~2줄
+  image_url TEXT,              -- PubChem 구조식 이미지 URL
+  exam_count INTEGER DEFAULT 0,-- 5년 출제 빈도
+  UNIQUE(name_en)
+);
+CREATE INDEX IF NOT EXISTS idx_drugs_name_ko ON drugs(name_ko);
+CREATE INDEX IF NOT EXISTS idx_drugs_class ON drugs(drug_class);
+
 CREATE TABLE IF NOT EXISTS feedback (
   id INTEGER PRIMARY KEY,
   question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
