@@ -159,6 +159,8 @@ def _fetch_by_chapters(chapter_ids: list[int], only_explained: bool, only_answer
         return []
     conds = ["q.chapter_id IN ({})".format(",".join("?" * len(chapter_ids)))]
     params: list = list(chapter_ids)
+    # 그림 의존(보기 전부 [그림 비공개]) 표시된 문제 제외 — 정답 검증 불가
+    conds.append("q.is_skipped = 0")
     if only_explained:
         conds.append("q.explanation IS NOT NULL AND q.explanation != ''")
     if only_answered:

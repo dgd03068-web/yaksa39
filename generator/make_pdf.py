@@ -267,6 +267,8 @@ def fetch_questions(filters: dict) -> list[dict]:
         params.append(yr)
     if not where:
         where.append("1=1")
+    # 그림 의존(보기 5개 전부 [그림 비공개])으로 학습 불가 표시된 문제 제외
+    where.append("q.is_skipped = 0")
     if filters.get("subject_ids"):
         where.append("q.subject_id IN ({})".format(",".join("?" * len(filters["subject_ids"]))))
         params.extend(filters["subject_ids"])

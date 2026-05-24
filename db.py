@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS questions (
   explanation TEXT,
   explanation_source TEXT,
   concept_tag TEXT,
+  is_skipped INTEGER NOT NULL DEFAULT 0,
   UNIQUE(exam_id, subject_id, question_number)
 );
 
