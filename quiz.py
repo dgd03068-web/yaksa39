@@ -71,13 +71,14 @@ def _now() -> str:
     return dt.datetime.now().isoformat(timespec="seconds")
 
 
-def record_attempt(qid: int, selected: int | None, is_correct: bool, mode: str) -> None:
-    """풀이 1건 기록."""
+def record_attempt(qid: int, selected: int | None, is_correct: bool, mode: str,
+                    elapsed_sec: int | None = None) -> None:
+    """풀이 1건 기록. elapsed_sec — 그 문제 풀이에 걸린 초 (선택)."""
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO attempts (question_id, attempted_at, is_correct, selected_answer, mode) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (qid, _now(), 1 if is_correct else 0, selected, mode),
+            "INSERT INTO attempts (question_id, attempted_at, is_correct, selected_answer, mode, elapsed_sec) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (qid, _now(), 1 if is_correct else 0, selected, mode, elapsed_sec),
         )
 
 
@@ -253,6 +254,38 @@ def _compute_weak_chapters(threshold: float = 0.6, min_attempts: int = 3) -> lis
     return out
 
 
+def _compute_weak_keywords(threshold: float = 0.6, min_attempts: int = 3) -> list[dict]:
+    """concept_tag 키워드 단위 약점 분석 (· / , 로 분할)."""
+    import re as _re
+    from collections import defaultdict as _dd
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT q.id, q.concept_tag, a.is_correct FROM attempts a "
+            "JOIN questions q ON a.question_id = q.id "
+            "WHERE q.concept_tag IS NOT NULL AND q.concept_tag != ''"
+        ).fetchall()
+    by_kw: dict = _dd(lambda: {"total": 0, "correct": 0, "qids": set()})
+    for r in rows:
+        for p in _re.split(r"[·,/]+", r["concept_tag"] or ""):
+            p = p.strip()
+            if 2 <= len(p) <= 30:
+                by_kw[p]["total"] += 1
+                by_kw[p]["correct"] += (r["is_correct"] or 0)
+                by_kw[p]["qids"].add(r["id"])
+    out: list[dict] = []
+    for kw, s in by_kw.items():
+        if s["total"] >= min_attempts:
+            rate = s["correct"] / s["total"]
+            if rate < threshold:
+                out.append({
+                    "keyword": kw, "rate": rate,
+                    "total": s["total"], "correct": s["correct"],
+                    "qids": list(s["qids"]),
+                })
+    out.sort(key=lambda x: x["rate"])
+    return out
+
+
 def _fetch_bookmarks_meta() -> list[dict]:
     """북마크된 문제 메타 (UI 목록용) — 최신 순."""
     with get_conn() as conn:
@@ -396,6 +429,26 @@ def _render_setup() -> None:
                 if qs:
                     _start_quiz(qs[:50] if len(qs) > 50 else qs, "study")
 
+    with st.expander("🎯 약점 키워드 클러스터링 (concept_tag 정답률 60% 미만)", expanded=False):
+        weak_kw = _compute_weak_keywords(threshold=0.6, min_attempts=3)
+        if not weak_kw:
+            st.caption("아직 키워드 단위 통계가 부족합니다.")
+        else:
+            for w in weak_kw[:15]:
+                st.markdown(
+                    f"- **{w['keyword']}** — 정답률 {w['rate']*100:.0f}% "
+                    f"({w['correct']}/{w['total']}, {len(w['qids'])}문제)"
+                )
+            if len(weak_kw) > 15:
+                st.caption(f"…외 {len(weak_kw)-15}개 더")
+            if st.button("🎯 약점 키워드 문제만 풀기", key="weak_kw_quiz"):
+                qids = []
+                for w in weak_kw:
+                    qids.extend(w["qids"])
+                qs = _fetch_by_ids(list(set(qids))[:50])
+                if qs:
+                    _start_quiz(qs, "study")
+
     with st.expander(f"⭐ 내 북마크 ({len(bookmark_ids)}개)", expanded=False):
         if not bookmark_ids:
             st.caption("아직 북마크한 문제가 없습니다. 풀이 중 ⭐ 버튼으로 추가하세요.")
@@ -465,6 +518,9 @@ def _render_study() -> None:
                       label_visibility="collapsed")
     selected = nums[labels.index(picked)] if picked else None
 
+    # ⏱ 타이머: 문제 진입 시각 기록 (첫 진입만)
+    q.setdefault("q_start_at", {}).setdefault(qid, _now())
+
     if not checked:
         if st.button("제출", type="primary", key=f"study_submit_{qid}"):
             if selected is None:
@@ -473,7 +529,12 @@ def _render_study() -> None:
                 is_correct = _grade(cur, selected)
                 q["answers"][qid] = selected
                 q["checked"][qid] = True
-                record_attempt(qid, selected, is_correct, "study")
+                start = q["q_start_at"].get(qid)
+                elapsed = None
+                if start:
+                    elapsed = int((dt.datetime.now() - dt.datetime.fromisoformat(start)).total_seconds())
+                q.setdefault("elapsed_log", {})[qid] = elapsed
+                record_attempt(qid, selected, is_correct, "study", elapsed)
                 st.rerun()
     else:
         selected = q["answers"].get(qid)
@@ -484,6 +545,9 @@ def _render_study() -> None:
         else:
             sel_label = CHOICE_LABELS[selected - 1] if selected and 1 <= selected <= 5 else "—"
             st.error(f"❌ 오답 — 선택: {sel_label} / 정답: {ans_label}")
+        el = q.get("elapsed_log", {}).get(qid)
+        if el is not None:
+            st.caption(f"⏱ 이 문제 풀이 시간: **{el}초**")
         if cur.get("concept_tag"):
             st.markdown(f"<span style='color:#cc0000;font-weight:700;'>{cur['concept_tag']}</span>",
                         unsafe_allow_html=True)
@@ -568,6 +632,15 @@ def _render_result() -> None:
         c2.metric("정답률", f"{pct:.0f}%")
         c3.metric("오답", f"{total - correct}개")
         st.progress(correct / total)
+
+        # ⏱ 전체 세션 시간 + 문제별 평균
+        started = q.get("started_at")
+        if started:
+            sess_sec = int((dt.datetime.now() - dt.datetime.fromisoformat(started)).total_seconds())
+            avg = sess_sec / total if total else 0
+            t1, t2 = st.columns(2)
+            t1.metric("⏱ 총 소요", f"{sess_sec//60}분 {sess_sec%60}초")
+            t2.metric("⏱ 문제당 평균", f"{avg:.0f}초")
 
     # 문제별 펼침
     with st.expander("📋 문제별 정오답·해설 보기", expanded=(total <= 20)):

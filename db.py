@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS attempts (
   attempted_at TEXT NOT NULL,
   is_correct INTEGER,
   selected_answer INTEGER,
-  mode TEXT
+  mode TEXT,
+  elapsed_sec INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS bookmarks (

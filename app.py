@@ -619,6 +619,83 @@ with tab2:
 
 # ───────────── Tab 3: 학습 이력 ─────────────
 with tab3:
+    # ── 학습 통계 대시보드 (#1) ──
+    st.subheader("📊 학습 통계 대시보드")
+    today = dt.date.today()
+    dday = (EXAM_DATE - today).days
+
+    with get_conn() as conn:
+        att_stats = conn.execute(
+            "SELECT COUNT(*) AS total, SUM(is_correct) AS correct, "
+            "COUNT(DISTINCT DATE(attempted_at)) AS days FROM attempts"
+        ).fetchone()
+    total_att = att_stats["total"] or 0
+    correct = att_stats["correct"] or 0
+    days = att_stats["days"] or 0
+
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("📅 D-day", f"{dday}일", help=f"시험일: {EXAM_DATE.isoformat()}")
+    m2.metric("📝 누적 풀이", f"{total_att}회")
+    m3.metric("✅ 정답률", f"{correct*100/total_att:.0f}%" if total_att else "—")
+    m4.metric("📚 학습일", f"{days}일")
+
+    if total_att == 0:
+        st.info("아직 풀이 데이터가 없습니다. ✏️ 문제 풀이 탭에서 시작하세요.")
+    else:
+        # 일별 학습량 (최근 30일)
+        with get_conn() as conn:
+            daily = conn.execute(
+                "SELECT DATE(attempted_at) AS d, COUNT(*) AS n, "
+                "SUM(is_correct) AS c FROM attempts "
+                "WHERE DATE(attempted_at) >= DATE('now', '-30 days') "
+                "GROUP BY DATE(attempted_at) ORDER BY d"
+            ).fetchall()
+        if daily:
+            try:
+                import pandas as pd
+                df = pd.DataFrame(
+                    [{"날짜": d["d"], "풀이": d["n"], "정답": d["c"] or 0} for d in daily]
+                )
+                st.markdown("**최근 30일 학습량**")
+                st.bar_chart(df.set_index("날짜")[["풀이", "정답"]])
+            except ImportError:
+                st.caption("pandas 미설치 — 차트 생략")
+
+        # 과목별 정답률
+        with get_conn() as conn:
+            by_subj = conn.execute(
+                "SELECT s.name AS subject, COUNT(*) AS total, SUM(a.is_correct) AS correct "
+                "FROM attempts a JOIN questions q ON a.question_id=q.id "
+                "JOIN subjects s ON q.subject_id=s.id "
+                "GROUP BY s.id ORDER BY s.session, s.id"
+            ).fetchall()
+        if by_subj:
+            st.markdown("**과목별 정답률**")
+            for r in by_subj:
+                tot = r["total"] or 0
+                cor = r["correct"] or 0
+                rate = cor * 100 / tot if tot else 0
+                bar = "█" * int(rate / 5) + "░" * (20 - int(rate / 5))
+                st.markdown(
+                    f"- **{r['subject']}** `{bar}` {rate:.0f}% ({cor}/{tot})"
+                )
+
+        # 연속 학습일 (streak)
+        with get_conn() as conn:
+            recent_days = conn.execute(
+                "SELECT DISTINCT DATE(attempted_at) AS d FROM attempts ORDER BY d DESC LIMIT 60"
+            ).fetchall()
+        if recent_days:
+            streak = 0
+            cursor = dt.date.today()
+            day_set = {dt.date.fromisoformat(r["d"]) for r in recent_days}
+            while cursor in day_set:
+                streak += 1
+                cursor -= dt.timedelta(days=1)
+            if streak > 0:
+                st.success(f"🔥 연속 학습 {streak}일째 — 계속 가요!")
+
+    st.divider()
     st.subheader("출력 이력")
     with get_conn() as conn:
         ws = conn.execute(
