@@ -87,6 +87,15 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS feedback (
+  id INTEGER PRIMARY KEY,
+  question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,      -- 'answer_wrong' / 'explanation' / 'typo' / 'other'
+  message TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  resolved INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS review_schedule (
   question_id INTEGER PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
   next_review_at TEXT NOT NULL,

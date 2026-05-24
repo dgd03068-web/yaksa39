@@ -23,7 +23,7 @@ from quiz import render_quiz_tab  # noqa: E402
 EXAM_DATE = dt.date(2027, 1, 15)  # 77회 시험일 (얼리버드 계획표 기준)
 YEAR_OPTIONS = [2021, 2022, 2023, 2024, 2025]
 
-st.set_page_config(page_title="2026 약사국시 학습지", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="2026 약사국시 학습지", layout="wide", initial_sidebar_state="auto")
 
 
 # ────────────────── 비밀번호 게이트 ──────────────────
@@ -741,6 +741,37 @@ with tab3:
 
 # ───────────── Tab 4: 데이터 현황 ─────────────
 with tab4:
+    # ── 피드백 인박스 (#9) ──
+    with get_conn() as conn:
+        pending = conn.execute(
+            "SELECT COUNT(*) FROM feedback WHERE resolved=0"
+        ).fetchone()[0]
+    with st.expander(f"⚠️ 피드백 인박스 (미해결 {pending}건)", expanded=pending > 0):
+        with get_conn() as conn:
+            fbs = conn.execute(
+                "SELECT id, question_id, kind, message, created_at, resolved "
+                "FROM feedback ORDER BY resolved ASC, id DESC LIMIT 50"
+            ).fetchall()
+        if not fbs:
+            st.caption("아직 피드백이 없습니다.")
+        else:
+            KIND_LABEL = {"answer_wrong": "🔴 정답 오류", "explanation": "🟡 해설 오류",
+                          "typo": "🟢 오타", "other": "⚪ 기타"}
+            for f in fbs:
+                cols = st.columns([5, 1])
+                status = "✅" if f["resolved"] else "🆕"
+                cols[0].markdown(
+                    f"{status} **qid={f['question_id']}** · {KIND_LABEL.get(f['kind'], f['kind'])} "
+                    f"· {f['created_at']}\n\n> {f['message'] or '_(메시지 없음)_'}"
+                )
+                if not f["resolved"]:
+                    if cols[1].button("해결", key=f"fbres_{f['id']}"):
+                        with get_conn() as conn:
+                            conn.execute("UPDATE feedback SET resolved=1 WHERE id=?", (f["id"],))
+                            conn.commit()
+                        st.rerun()
+                st.divider()
+
     cs1, cs2 = st.columns(2)
     with cs1:
         st.subheader("🔧 단원 잘못 분류 수정")

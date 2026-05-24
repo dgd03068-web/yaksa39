@@ -62,6 +62,18 @@ div[class*="st-key-exam_radio_"] [role="radiogroup"] > label:has(input:checked) 
 
 /* 알림 박스 */
 [data-testid="stAlert"] { border-radius: 12px; }
+
+/* 📱 모바일 반응형 (max-width 640px) */
+@media (max-width: 640px) {
+  .block-container { padding-top: 0.8rem !important; padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
+  .quiz-q { font-size: 15.5px; padding: 16px 14px; }
+  div[class*="st-key-study_radio_"] [role="radiogroup"] > label p,
+  div[class*="st-key-exam_radio_"] [role="radiogroup"] > label p { font-size: 14.5px; line-height: 1.45; }
+  div[class*="st-key-study_radio_"] [role="radiogroup"] > label,
+  div[class*="st-key-exam_radio_"] [role="radiogroup"] > label { padding: 12px 12px; }
+  .stButton > button, .stFormSubmitButton > button { min-height: 42px; font-size: 14.5px; }
+  [data-testid="stMetricValue"] { font-size: 1.2rem !important; }
+}
 </style>
 """
 
@@ -131,6 +143,16 @@ def record_attempt(qid: int, selected: int | None, is_correct: bool, mode: str,
             (qid, _now(), 1 if is_correct else 0, selected, mode, elapsed_sec),
         )
     _update_review_schedule(qid, is_correct)
+
+
+def submit_feedback(qid: int, kind: str, message: str) -> None:
+    """오류·개선 신고 1건 저장."""
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO feedback (question_id, kind, message, created_at, resolved) "
+            "VALUES (?, ?, ?, ?, 0)",
+            (qid, kind, message.strip()[:1000], _now()),
+        )
 
 
 def toggle_bookmark(qid: int) -> bool:
@@ -621,6 +643,21 @@ def _render_study() -> None:
             )
         else:
             st.caption("해설 미작성")
+
+        # ⚠️ 오류 신고 (Phase #9)
+        with st.expander("⚠️ 이 문제에 오류가 있나요?", expanded=False):
+            kind_label = st.radio(
+                "종류", ["정답 오류", "해설 오류", "오타", "기타"],
+                horizontal=True, key=f"fbkind_{qid}", label_visibility="collapsed",
+            )
+            kind_map = {"정답 오류": "answer_wrong", "해설 오류": "explanation",
+                        "오타": "typo", "기타": "other"}
+            msg = st.text_area("내용 (선택, 구체적일수록 좋아요)",
+                                key=f"fbmsg_{qid}", height=70,
+                                placeholder="예: 보기 ②의 약물명이 오타입니다 (아스피린 → 아토르바스타틴)")
+            if st.button("📨 신고 보내기", key=f"fbsend_{qid}"):
+                submit_feedback(qid, kind_map[kind_label], msg or "")
+                st.success("신고 접수됨. 검토 후 반영하겠습니다 🙏")
 
         nav_l, nav_r = st.columns(2)
         if idx + 1 < total:
