@@ -87,6 +87,14 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS review_schedule (
+  question_id INTEGER PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
+  next_review_at TEXT NOT NULL,
+  interval_days REAL NOT NULL DEFAULT 1.0,
+  ease_factor REAL NOT NULL DEFAULT 2.5,
+  last_attempted_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS worksheets (
   id INTEGER PRIMARY KEY,
   created_at TEXT NOT NULL,

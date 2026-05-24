@@ -71,15 +71,66 @@ def _now() -> str:
     return dt.datetime.now().isoformat(timespec="seconds")
 
 
+def _update_review_schedule(qid: int, is_correct: bool) -> None:
+    """간격 반복(SM-2 단순화) 스케줄 갱신.
+    오답 → interval 1일 리셋, ease −0.2 (min 1.3).
+    정답 → interval × ease (max 60일), ease +0.1 (max 3.0).
+    """
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT interval_days, ease_factor FROM review_schedule WHERE question_id=?",
+            (qid,),
+        ).fetchone()
+        if row is None:
+            interval = 2.0 if is_correct else 1.0
+            ease = 2.5
+        else:
+            interval = float(row["interval_days"])
+            ease = float(row["ease_factor"])
+            if is_correct:
+                interval = min(60.0, max(1.0, interval) * ease)
+                ease = min(3.0, ease + 0.1)
+            else:
+                interval = 1.0
+                ease = max(1.3, ease - 0.2)
+        next_at = (dt.date.today() + dt.timedelta(days=int(round(interval)))).isoformat()
+        conn.execute(
+            "INSERT OR REPLACE INTO review_schedule "
+            "(question_id, next_review_at, interval_days, ease_factor, last_attempted_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (qid, next_at, interval, ease, _now()),
+        )
+
+
+def _fetch_due_reviews() -> list[dict]:
+    """오늘이 복습일이거나 지난 문제들 (오래 지난 순)."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT question_id FROM review_schedule "
+            "WHERE DATE(next_review_at) <= DATE('now') "
+            "ORDER BY next_review_at ASC"
+        ).fetchall()
+    return _fetch_by_ids([r["question_id"] for r in rows])
+
+
+def _count_due_reviews() -> int:
+    with get_conn() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM review_schedule "
+            "WHERE DATE(next_review_at) <= DATE('now')"
+        ).fetchone()[0]
+
+
 def record_attempt(qid: int, selected: int | None, is_correct: bool, mode: str,
                     elapsed_sec: int | None = None) -> None:
-    """풀이 1건 기록. elapsed_sec — 그 문제 풀이에 걸린 초 (선택)."""
+    """풀이 1건 기록 + 간격 반복 스케줄 자동 갱신."""
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO attempts (question_id, attempted_at, is_correct, selected_answer, mode, elapsed_sec) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (qid, _now(), 1 if is_correct else 0, selected, mode, elapsed_sec),
         )
+    _update_review_schedule(qid, is_correct)
 
 
 def toggle_bookmark(qid: int) -> bool:
@@ -355,10 +406,15 @@ def _render_setup() -> None:
 
     wrong_ids = get_wrong_ids()
     bookmark_ids = get_bookmarked_ids()
+    due_count = _count_due_reviews()
 
     source = st.radio(
         "출제 범위",
-        ["단원별", f"오답노트 ({len(wrong_ids)})", f"북마크 ({len(bookmark_ids)})", "🎲 랜덤 모의고사"],
+        ["단원별",
+         f"오답노트 ({len(wrong_ids)})",
+         f"북마크 ({len(bookmark_ids)})",
+         f"🔁 복습 도래 ({due_count})",
+         "🎲 랜덤 모의고사"],
         horizontal=True,
     )
 
@@ -385,6 +441,12 @@ def _render_setup() -> None:
             questions = _fetch_by_ids(list(bookmark_ids))
         else:
             st.info("북마크한 문제가 없습니다. 풀이 중 ⭐ 버튼으로 북마크하세요.")
+    elif source.startswith("🔁"):
+        questions = _fetch_due_reviews()
+        if not questions:
+            st.info("오늘 복습할 문제가 없습니다. 풀이를 더 쌓으면 1·3·7·14일 간격으로 자동 추천돼요.")
+        else:
+            st.caption(f"💡 SM-2 간격 반복 알고리즘 — 정답이면 간격 ↑, 오답이면 1일 리셋")
     else:  # 🎲 랜덤 모의고사
         rn = st.slider("문제 수 (5년 통합 풀에서 무작위 추출)", 10, 350, 50)
         st.caption("⚠️ 슬라이더를 움직일 때마다 새로 추출됩니다. 시작 직전에 값을 확정하세요.")

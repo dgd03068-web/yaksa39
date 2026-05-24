@@ -633,11 +633,18 @@ with tab3:
     correct = att_stats["correct"] or 0
     days = att_stats["days"] or 0
 
-    m1, m2, m3, m4 = st.columns(4)
+    # 복습 도래 카운트
+    with get_conn() as conn:
+        due = conn.execute(
+            "SELECT COUNT(*) FROM review_schedule WHERE DATE(next_review_at) <= DATE('now')"
+        ).fetchone()[0]
+
+    m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("📅 D-day", f"{dday}일", help=f"시험일: {EXAM_DATE.isoformat()}")
     m2.metric("📝 누적 풀이", f"{total_att}회")
     m3.metric("✅ 정답률", f"{correct*100/total_att:.0f}%" if total_att else "—")
     m4.metric("📚 학습일", f"{days}일")
+    m5.metric("🔁 복습 도래", f"{due}개", help="간격 반복(SM-2)으로 오늘 복습 시간이 된 문제")
 
     if total_att == 0:
         st.info("아직 풀이 데이터가 없습니다. ✏️ 문제 풀이 탭에서 시작하세요.")
