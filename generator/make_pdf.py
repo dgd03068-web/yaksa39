@@ -429,11 +429,23 @@ def render_pdf(questions: list[dict], filters: dict, out_path: Path) -> Path:
     subject_summary = " · ".join(subj_names)
     generated_at = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
+    # 얼리버드 학습 노트 (filters['plan_date'] 있을 때만)
+    study_aid = None
+    cat_emoji = {"합성": "⚗️", "생약": "🌿", "약치": "💊", "약법": "📖"}
+    plan_date = filters.get("plan_date")
+    if plan_date:
+        try:
+            from parsers.plan_to_qids import study_aid_for_plan  # 지연 import
+            study_aid = study_aid_for_plan(plan_date)
+        except Exception:
+            study_aid = None
+
     # 두 템플릿을 한 HTML로 합쳐 render 1회 (이전: 2회 → 절반 시간)
     ws_html = _JINJA_ENV.get_template("worksheet.html").render(
         title=title, subtitle=subtitle, generated_at=generated_at,
         total_questions=total, subject_summary=subject_summary,
         groups=groups,
+        study_aid=study_aid, cat_emoji=cat_emoji,
     )
     sol_html = _JINJA_ENV.get_template("solutions.html").render(groups=groups)
 

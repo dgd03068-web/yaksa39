@@ -17,6 +17,28 @@
   </div>
 </div>
 
+<!-- ==================== 학습 노트 박스 (얼리버드 PDF만) ==================== -->
+{% if study_aid %}
+<section class="study-aid">
+  <h2 class="aid-main">📚 오늘 학습할 항목</h2>
+  {% for cat in ['합성', '생약', '약치', '약법'] %}
+    {% set cards = study_aid.get(cat, []) %}
+    {% if cards %}
+      <div class="aid-cat">
+        <h3 class="aid-title">{{ cat_emoji.get(cat, '·') }} {{ cat }}</h3>
+        {% for card in cards %}
+          <div class="aid-card">
+            <strong>{{ card.name or card.chapter_name }}</strong>{% if card.drug_class %} · <span class="aid-class">{{ card.drug_class }}</span>{% endif %}
+            {% if card.desc %}<div class="aid-desc">{{ card.desc }}</div>{% endif %}
+            {% if card.summary %}<div class="aid-desc">{{ card.summary }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endfor %}
+</section>
+{% endif %}
+
 <!-- ==================== 문제 영역 (2단 컬럼) ==================== -->
 <div class="columns">
 {% for group in groups %}

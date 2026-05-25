@@ -607,12 +607,35 @@ with tab2:
             st.divider()
 
             # ── 얼리버드 학습지: 4 카테고리 → qid 매칭 미리보기 + PDF 생성 ──
-            from parsers.plan_to_qids import plan_items_to_qids
+            from parsers.plan_to_qids import plan_items_to_qids, study_aid_for_plan
             try:
                 qids_by_cat = plan_items_to_qids(selected)
             except Exception as e:
                 st.error(f"매칭 오류: {e}")
                 qids_by_cat = {"합성": [], "생약": [], "약치": [], "약법": []}
+
+            # 학습 노트 미리보기
+            with st.expander("📚 학습 노트 미리보기 (PDF 첫 페이지에 포함)", expanded=False):
+                try:
+                    aid = study_aid_for_plan(selected)
+                    EMO = {"합성": "⚗️", "생약": "🌿", "약치": "💊", "약법": "📖"}
+                    for cat in ["합성", "생약", "약치", "약법"]:
+                        cards = aid.get(cat, [])
+                        if not cards:
+                            continue
+                        st.markdown(f"**{EMO[cat]} {cat}** ({len(cards)})")
+                        for c in cards:
+                            name = c.get("name") or c.get("chapter_name", "")
+                            line = f"- **{name}**"
+                            if c.get("drug_class"):
+                                line += f" · _{c['drug_class']}_"
+                            st.markdown(line)
+                            if c.get("desc"):
+                                st.caption(c["desc"])
+                            if c.get("summary"):
+                                st.caption(c["summary"][:200] + ("…" if len(c["summary"]) > 200 else ""))
+                except Exception as e:
+                    st.caption(f"노트 로드 오류: {e}")
 
             union = set()
             for q in qids_by_cat.values():
@@ -643,6 +666,7 @@ with tab2:
                         filters = {
                             'year': None, 'subject_ids': [], 'chapter_ids': [],
                             'qid_in': final_qids, 'include_hidden': True,
+                            'plan_date': selected,  # 학습 노트 박스 포함
                         }
                         out_path = make_worksheet(filters)
                     with open(out_path, 'rb') as f:

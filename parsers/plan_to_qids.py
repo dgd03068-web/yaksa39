@@ -118,6 +118,89 @@ def _dates_in_range(start: str, end: str) -> list[str]:
     return [(s + dt.timedelta(days=i)).isoformat() for i in range((e - s).days + 1)]
 
 
+def study_aid_for_plan(plan_date) -> dict:
+    """그날의 학습 노트 카드 (PDF 첫 페이지용).
+
+    반환:
+      {"합성": [{name, drug_class?, desc?}, ...],
+       "생약": [{name}, ...],
+       "약치": [{chapter_name, summary}],
+       "약법": [{chapter_name, summary}]}
+    """
+    from parsers.study_notes_loader import get_chapter_note  # 지연 import
+
+    if isinstance(plan_date, (tuple, list)) and len(plan_date) == 2:
+        date_clause = "plan_date BETWEEN ? AND ?"
+        params: tuple = (plan_date[0], plan_date[1])
+    else:
+        date_clause = "plan_date = ?"
+        params = (plan_date,)
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT plan_date, category, content, chapter_id FROM study_plan WHERE {date_clause}",
+            params,
+        ).fetchall()
+
+    aid = {"합성": [], "생약": [], "약치": [], "약법": []}
+    seen_law_chapters = set()  # 같은 약법 단원 중복 카드 방지
+
+    with get_conn() as conn:
+        for r in rows:
+            cat = r["category"]
+            content = (r["content"] or "").strip()
+            chap_id = r["chapter_id"]
+
+            if cat == "합성":
+                for tok in _split_content(content):
+                    drug = conn.execute(
+                        "SELECT name_ko, name_en, drug_class, description "
+                        "FROM drugs WHERE name_en LIKE ? OR name_ko LIKE ? LIMIT 1",
+                        (f"%{tok}%", f"%{tok}%"),
+                    ).fetchone()
+                    if drug:
+                        aid["합성"].append({
+                            "name": f"{drug['name_ko'] or tok} ({drug['name_en']})",
+                            "drug_class": drug["drug_class"] or "",
+                            "desc": drug["description"] or "",
+                        })
+                    else:
+                        aid["합성"].append({"name": tok})
+
+            elif cat == "생약":
+                for tok in _split_content(content):
+                    aid["생약"].append({"name": tok})
+
+            elif cat == "약치" and chap_id is not None:
+                chap = conn.execute(
+                    "SELECT name FROM chapters WHERE id=?", (chap_id,)
+                ).fetchone()
+                summary = get_chapter_note(chap_id, max_chars=350)
+                aid["약치"].append({
+                    "chapter_name": chap["name"] if chap else content,
+                    "summary": summary,
+                })
+
+            elif cat == "약법":
+                law_cid = _law_chapter_for_date(r["plan_date"])
+                if law_cid in seen_law_chapters:
+                    continue
+                seen_law_chapters.add(law_cid)
+                chap = conn.execute(
+                    "SELECT name FROM chapters WHERE id=?", (law_cid,)
+                ).fetchone()
+                summary = get_chapter_note(law_cid, max_chars=350)
+                aid["약법"].append({
+                    "chapter_name": chap["name"] if chap else "약사법규",
+                    "summary": summary,
+                })
+
+    # 카테고리당 최대 8개 카드 제한 (첫 페이지 overflow 방지)
+    for cat in aid:
+        aid[cat] = aid[cat][:8]
+    return aid
+
+
 def count_summary(qids_by_cat: dict) -> dict:
     """카테고리별 문제 수 + 합집합 크기."""
     union: set = set()
