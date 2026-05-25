@@ -279,6 +279,10 @@ def fetch_questions(filters: dict) -> list[dict]:
         params.extend(filters["chapter_ids"])
     if filters.get("unclassified_only"):
         where.append("q.chapter_id IS NULL")
+    if filters.get("qid_in"):
+        qids = filters["qid_in"]
+        where.append("q.id IN ({})".format(",".join("?" * len(qids))))
+        params.extend(qids)
     sql = f"""
       SELECT q.id, q.exam_id, e.year AS year, q.subject_id, s.name AS subject, s.session,
              q.chapter_id, c.name AS chapter_name, c.chapter_no,

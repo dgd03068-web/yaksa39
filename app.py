@@ -596,27 +596,64 @@ with tab2:
 
         if day_plan:
             st.subheader(f"{selected} 학습 분량")
-            chap_items = []
             for r in day_plan:
                 cat, content, cid = r['category'], r['content'], r['chapter_id']
                 emoji = {"합성": "⚗️", "생약": "🌿", "약치": "💊", "약법": "📖"}.get(cat, "·")
                 if cid:
                     st.write(f"{emoji} **[{cat}]** {content}  `chapter_id={cid}`")
-                    chap_items.append(cid)
                 else:
                     st.write(f"{emoji} **[{cat}]** {content}")
 
-            if chap_items:
-                st.divider()
-                if st.button(f"💊 약치 단원 5년치 통합 출력 ({len(chap_items)}단원)", type="primary"):
-                    try:
-                        with st.spinner("생성 중..."):
-                            f2 = {'year': None, 'subject_ids': [], 'chapter_ids': chap_items, 'include_hidden': True}
-                            out2 = make_worksheet(f2)
-                        with open(out2, 'rb') as f:
-                            st.download_button("⬇ PDF 다운로드", f, file_name=out2.name, mime='application/pdf')
-                    except Exception as e:
-                        st.error(f"오류: {e}")
+            st.divider()
+
+            # ── 얼리버드 학습지: 4 카테고리 → qid 매칭 미리보기 + PDF 생성 ──
+            from parsers.plan_to_qids import plan_items_to_qids
+            try:
+                qids_by_cat = plan_items_to_qids(selected)
+            except Exception as e:
+                st.error(f"매칭 오류: {e}")
+                qids_by_cat = {"합성": [], "생약": [], "약치": [], "약법": []}
+
+            union = set()
+            for q in qids_by_cat.values():
+                union.update(q)
+
+            # 카테고리별 칩
+            chip_cols = st.columns(4)
+            for i, cat in enumerate(["합성", "생약", "약치", "약법"]):
+                emoji = {"합성": "⚗️", "생약": "🌿", "약치": "💊", "약법": "📖"}[cat]
+                chip_cols[i].metric(f"{emoji} {cat}", f"{len(qids_by_cat.get(cat, []))}문제")
+
+            st.caption(f"📋 5년 기출 총 **{len(union)}문제** 매칭 — 약법은 약사법규 6단원 라운드로빈으로 그날 1단원만")
+
+            # 카테고리 선택
+            picked = st.multiselect(
+                "출제 카테고리",
+                ["합성", "생약", "약치", "약법"],
+                default=["합성", "생약", "약치", "약법"],
+                help="카테고리별 매칭 문제만 출제",
+            )
+            final_qids = sorted({qid for cat in picked for qid in qids_by_cat.get(cat, [])})
+            st.caption(f"최종 선택: **{len(final_qids)}문제**")
+
+            if st.button(f"📋 얼리버드 학습지 PDF 생성 ({len(final_qids)}문제)",
+                         type="primary", disabled=not final_qids):
+                try:
+                    with st.spinner("PDF 생성 중..."):
+                        filters = {
+                            'year': None, 'subject_ids': [], 'chapter_ids': [],
+                            'qid_in': final_qids, 'include_hidden': True,
+                        }
+                        out_path = make_worksheet(filters)
+                    with open(out_path, 'rb') as f:
+                        st.download_button(
+                            "⬇ PDF 다운로드", f.read(),
+                            file_name=f"얼리버드_{selected}.pdf",
+                            mime='application/pdf', type="primary",
+                        )
+                    st.success(f"생성 완료: {out_path.name}")
+                except Exception as e:
+                    st.error(f"오류: {type(e).__name__}: {e}")
 
 # ───────────── Tab 3: 학습 이력 ─────────────
 with tab3:
