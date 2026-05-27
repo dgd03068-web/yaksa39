@@ -25,6 +25,26 @@ YEAR_OPTIONS = [2021, 2022, 2023, 2024, 2025]
 
 st.set_page_config(page_title="2026 약사국시 학습지", layout="wide", initial_sidebar_state="expanded")
 
+# 사이드바 강제 표시 (Cloud 일부 환경에서 자동 숨김 방지)
+st.markdown("""
+<style>
+/* 사이드바 표시 보장 */
+[data-testid="stSidebar"] {
+    display: flex !important;
+    min-width: 244px !important;
+}
+[data-testid="stSidebar"][aria-expanded="false"] {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+}
+/* 사이드바 토글 버튼은 항상 클릭 가능 */
+[data-testid="collapsedControl"] {
+    display: block !important;
+    visibility: visible !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 # ────────────────── 비밀번호 게이트 ──────────────────
 def _check_password() -> bool:
