@@ -23,7 +23,7 @@ from quiz import render_quiz_tab  # noqa: E402
 EXAM_DATE = dt.date(2027, 1, 15)  # 77회 시험일 (얼리버드 계획표 기준)
 YEAR_OPTIONS = [2021, 2022, 2023, 2024, 2025]
 
-st.set_page_config(page_title="2026 약사국시 학습지", layout="wide", initial_sidebar_state="auto")
+st.set_page_config(page_title="2026 약사국시 학습지", layout="wide", initial_sidebar_state="expanded")
 
 
 # ────────────────── 비밀번호 게이트 ──────────────────
